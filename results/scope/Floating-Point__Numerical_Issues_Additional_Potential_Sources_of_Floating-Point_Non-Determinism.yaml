@@ -1,0 +1,118 @@
+scope_name: 'Floating-Point__Numerical_Issues_Additional_Potential_Sources_of_Floating-Point_Non-Determinism'
+prompt: 'Analyze potential non-deterministic behavior within the Floating-Point & Numerical Issues - Additional Potential Sources of Floating-Point Non-Determinism'
+subjects:
+- |
+  Math Library Variations.
+  Different `libm` or custom math libraries have slightly different polynomial or rational approximations for functions like sin, log, exp, etc. Runs using different library versions can yield small numeric differences.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Summation is less about math library calls, but you can mix `sin` or `exp` calls in the loop.  
+     - Print final result to see if library differences show up across servers.
+  2. Rounding Mode & Extended Precision Variation  
+     - Some math libraries assume round-to-nearest or full 64-bit precision.  
+     - Print function outputs in different rounding modes.
+  3. Denormal & Underflow Detection  
+     - Evaluate `log` or `exp` near underflow region.  
+     - Print results to see if library versions handle subnormals differently.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Some libraries use vector intrinsics if available.  
+     - Print final function outputs to detect differences.
+  5. Speculative & Timing-Sensitive Check  
+     - If the library call is time-based (like an optimized vs. fallback path), speculation might call different code.  
+     - Print which path was used or final results.
+- |
+  Cross-Platform / Cross-Arch.
+  Even within x86, different vendors (Intel vs. AMD vs. a virtual CPU) have slight differences in microcode or handling of edge cases, leading to small numeric discrepancies.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Run the same summation code on multiple machines (Intel vs. AMD) via container.  
+     - Print final sums to see if differences appear.
+  2. Rounding Mode & Extended Precision Variation  
+     - Toggle rounding modes across different hardware.  
+     - Print intermediate values for anomalies.
+  3. Denormal & Underflow Detection  
+     - Multiply or divide subnormals.  
+     - Print iteration count that leads to zero on each architecture.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Some CPUs might have different latencies or internal rounding behaviors.  
+     - Print final numeric results for each path on each machine.
+  5. Speculative & Timing-Sensitive Check  
+     - Time-based branches might behave differently on different microarchitectures.  
+     - Print final states from each run on each platform.
+- |
+  Uninitialized Floating Variables.
+  If a program uses uninitialized memory for floating-point variables, any leftover bits in memory can differ from run to run, causing unpredictable numeric outcomes.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Summation that starts with an uninitialized accumulator.  
+     - Print final sum to see random differences.
+  2. Rounding Mode & Extended Precision Variation  
+     - If uninitialized data has random sign bits or exponent bits, rounding can differ.  
+     - Print initial value each run to see variations.
+  3. Denormal & Underflow Detection  
+     - Uninitialized memory might hold subnormal or even NaN patterns.  
+     - Print the raw bits each run.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - If SSE zero-initializes some registers but not others, you might see differences.  
+     - Print final computed results each run.
+  5. Speculative & Timing-Sensitive Check  
+     - If code speculatively uses an uninitialized variable, the final outcome can change randomly.  
+     - Print the variable’s value and the final result.
+- |
+  IEEE754 Exception Flags.
+  The floating-point status flags (inexact, underflow, overflow, invalid, divide-by-zero) may be set or cleared differently depending on the execution path. Checking them can produce different results if the environment is not consistent.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Perform a summation that might raise an inexact flag.  
+     - Print the status of flags after completion to see if they differ across runs.
+  2. Rounding Mode & Extended Precision Variation  
+     - Switch rounding mode mid-computation, possibly triggering or clearing flags.  
+     - Print the flags to detect changes.
+  3. Denormal & Underflow Detection  
+     - Repeatedly multiply small numbers to set underflow flag.  
+     - Print whether the flag is actually set each run.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Different instruction sets set or clear flags differently.  
+     - Print final flags to see if they mismatch.
+  5. Speculative & Timing-Sensitive Check  
+     - If a speculative path triggers an exception but is rolled back, flags might still be set.  
+     - Print flags to detect differences.
+- |
+  Sign Extension / Type Pun.
+  Type punning (e.g., via `union` in C) reinterprets bits in ways that can vary if memory alignment or leftover bits are not consistent across runs.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Sum values read from a union that also stores integers.  
+     - Print final sums to see if leftover bits cause differences.
+  2. Rounding Mode & Extended Precision Variation  
+     - If rounding mode is changed and a float is reinterpreted as an int or vice versa, leftover bits may cause different conversions.  
+     - Print the reinterpreted values.
+  3. Denormal & Underflow Detection  
+     - Store a subnormal float in a union, then read it as an int.  
+     - Print the raw bits each run to see if environment changes them.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - SSE might handle alignment differently.  
+     - Print final type-punned results to detect differences in each path.
+  5. Speculative & Timing-Sensitive Check  
+     - If speculation leads the code to reinterpret memory that was not fully written, leftover bits might differ.  
+     - Print the read bits each run.
+- |
+  Compiler Bugs / Undefined Behavior.
+  Reliance on undefined behavior (e.g., out-of-bounds array reads, invalid type punning, or unsequenced modifications) can produce wildly different results depending on compiler optimizations or random factors at runtime.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - If the code performs out-of-bounds writes that corrupt a summation variable, final sums may differ randomly.  
+     - Print the sums each run.
+  2. Rounding Mode & Extended Precision Variation  
+     - If the undefined behavior changes how rounding mode is set or used, outputs may vary.  
+     - Print partial results.
+  3. Denormal & Underflow Detection  
+     - If an illegal memory access flips FTZ flags or subnormal bits, results might vary.  
+     - Print final computations each run.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Different codegen might place out-of-bounds data in different registers.  
+     - Print final numeric results to see if they differ.
+  5. Speculative & Timing-Sensitive Check  
+     - An undefined behavior might or might not be triggered depending on speculation or micro-timing.  
+     - Print final outputs across runs to see if random corruption appears.
+

@@ -1,0 +1,78 @@
+scope_name: 'Language_Runtimes__Libraries_Library_Internals__Reflection'
+prompt: 'Analyze potential non-deterministic behavior within the Language Runtimes & Libraries - Library Internals & Reflection'
+subjects:
+- |
+  Reflection & Metadata Order.
+  
+  Some of test propositions:
+- |
+  Field/Method Enumeration Order.
+  APIs like `Class.getDeclaredMethods()` in Java or `Type.GetMethods()` in C# do not guarantee the order in which they return methods/fields. This can lead to different iteration sequences across runs, especially if the library uses hash-based data structures or non-ordered collections internally.
+  Some of test propositions:
+  1. Enumerate & Print All Methods  
+     - Write code to reflect on a well-known class. Print each method name in the order returned. Compare logs across runs for differences.
+  2. HashMap Insertion  
+     - Take the enumerated method names, insert them into a hash map, and then print the iteration order. Observe if the map yields a different sequence across multiple runs.
+  3. Sort Then Print  
+     - Deliberately sort the returned reflection results alphabetically, print that list, then compare it to the unsorted iteration. If the unsorted iteration changes while the sorted list stays constant, you confirm nondeterministic retrieval order.
+  4. Multiple Reflection Passes  
+     - Reflect on the same class multiple times within the same run, printing each pass’s order. If the library caches or uses different underlying data structures each time, the order might differ.
+  5. Reflection of Interfaces/Annotations  
+     - Enumerate both methods and annotations. Print them. Some runtimes treat these differently in reflection calls, potentially revealing additional nondeterministic orders across runs.
+- |
+  Annotation/Attribute Processing.
+  While the set of annotations or attributes on a class is fixed, the order in which they are enumerated by reflection libraries is often unspecified. Code that depends on the enumeration sequence can observe inconsistent behavior.
+  Some of test propositions:
+  1. List All Annotations  
+     - Reflect on a class or method with multiple annotations, printing them in the order returned. Compare the sequences across runs.
+  2. Compare Repeated Calls  
+     - Call the annotation-reflection method multiple times, printing the results. If internal caching or iteration logic is nondeterministic, the order could change within the same run.
+  3. Combine with Other Reflection  
+     - Reflect on fields, methods, and annotations in a single pass. Print them in the order returned. Sometimes the library merges these reflection calls behind the scenes in an unpredictable way.
+  4. Attribute Arrays  
+     - Some languages return arrays or collections of attributes. Insert them into a logging structure that prints indexes. Check if the array’s index assignment changes across runs.
+  5. Multiple Annotation Types  
+     - Use different annotation types or custom attributes with different retention policies. Print them. Certain policies (e.g., runtime vs. compile-time) might produce different reflection orders.
+- |
+  Dynamic Proxies & Reflection.
+  Dynamic proxies (e.g., Java’s `Proxy` or CGLIB, C#’s `DispatchProxy`) often generate classes at runtime with unique names or IDs. Reflecting on these proxies can yield different “generated” class names or memory addresses across runs, introducing nondeterminism if you log or compare these values.
+  Some of test propositions:
+  1. Generate Multiple Proxies  
+     - Create several dynamic proxies in one run, reflect on their generated class names, and print them. The naming scheme might differ across runs (e.g., incrementing suffix).
+  2. Proxy Hash Code  
+     - Insert each proxy instance into a hash-based collection and print iteration order or identity-based hashing. Varying seeds or addresses can cause different results.
+  3. Reflection on Proxy Methods  
+     - Each proxy might have automatically generated methods. Print all method names discovered. Compare runs to see if naming or ordering changes.
+  4. Invoke Handler Logging  
+     - Use an invocation handler or intercept mechanism that logs calls. If it logs different proxy class identifiers across runs, that reveals nondeterminism.
+  5. Proxy Chain  
+     - Generate proxies of proxies (if feasible). Reflect on them and print the resulting metadata. The multi-layer generation order can differ each run.
+- |
+  Type Loading & Initialization Order.
+  In complex applications, the runtime might load classes or assemblies on-demand and in different sequences. Static initializers or class loaders can run in varying orders, especially if multiple threads trigger loading simultaneously.
+  Some of test propositions:
+  1. Forced Class Loading  
+     - Explicitly reference multiple classes in a random order. Print a log message in each class’s static initializer. If the order changes across runs, that indicates nondeterministic loading.
+  2. Reflection-Based Loading  
+     - Reflect on classes by name (strings), and log each load event. The runtime might decide on a different order if concurrency or caching changes.
+  3. Concurrent Access  
+     - Use multiple tasks or threads to access different classes simultaneously. Print when each class is first used. Race conditions in class loading can appear differently across runs.
+  4. Static Initializer Print  
+     - Within each class’s static block, print an identifier. Compare the sequence of prints across multiple runs. If it differs, the loading order is nondeterministic.
+  5. Conditional Loading  
+     - Write code that conditionally loads classes based on random or time-based checks, then prints which classes got loaded. Variation in condition evaluation can reorder loading.
+- |
+  Caching of Reflection Data.
+  Some runtimes cache reflection results for performance. Depending on when or how the cache is populated (potentially with concurrency), results might appear in different orders or times, leading to nondeterministic reflection outcomes.
+  Some of test propositions:
+  1. Multiple Reflection Passes with Logs  
+     - Reflect on the same class repeatedly, printing method or field lists. If caching is involved, the first pass might differ from subsequent passes. Compare across runs.
+  2. Randomized Reflection Sequence  
+     - Randomly choose which classes to reflect on first. Print the reflection order and results. The caching might cause second or third reflection calls to differ if data is loaded out of order.
+  3. Concurrency in Reflection  
+     - Call reflection from multiple tasks at once on the same classes. Print results as soon as each call completes. The caching layer might race, leading to inconsistent final outputs.
+  4. Evict Cache  
+     - If the environment allows (some runtimes have ways to clear caches or re-load classes), do so in the middle of the run, then re-reflect. Compare how that second reflection differs across runs.
+  5. Profiling Reflection Calls  
+     - Record the time or iteration count of each reflection call. If caching is triggered unpredictably, you may see big time differences or changes in the reflection results across runs.
+

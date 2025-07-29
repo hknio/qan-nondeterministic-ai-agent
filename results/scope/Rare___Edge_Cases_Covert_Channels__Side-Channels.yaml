@@ -1,0 +1,18 @@
+scope_name: 'Rare___Edge_Cases_Covert_Channels__Side-Channels'
+prompt: 'Analyze potential non-deterministic behavior within the Rare / Edge Cases - Covert Channels & Side-Channels'
+subjects:
+- |
+  Intentional Side-Channel.
+  Contracts can exploit cache timing, speculation, or other microarchitectural features to communicate data covertly or observe hidden states, creating unexpected timing variations.
+  Some of test propositions:
+  - Cache Prime & Probe Test  
+    Prime cache lines, then measure access times to detect “stray” use. Print timing differences that might suggest side-channel activity.
+  - Speculation Timing Monitor  
+    Run instructions designed to reveal speculative execution artifacts (e.g., Spectre-like tests). Print any measurable timing differences that indicate data leakage.
+  - Branch Misprediction Counter  
+    Generate many mispredictions via indirect branching. Print average misprediction resolution times to detect unusual patterns (possible side-channel usage).
+  - Noise Injection  
+    Run a background process that accesses memory randomly while the main process measures its own cache hits/misses. Print the range of variation to detect covert signals.
+  - Network Stack Timing  
+    Repeatedly send and receive loopback datagrams, measuring latencies. Print irregular spikes which could indicate side-channel interference via networking buffers.
+

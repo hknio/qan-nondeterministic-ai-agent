@@ -1,0 +1,61 @@
+scope_name: 'Floating-Point__Numerical_Issues_JIT___Compiler_Optimizations'
+prompt: 'Analyze potential non-deterministic behavior within the Floating-Point & Numerical Issues - JIT / Compiler Optimizations'
+subjects:
+- |
+  Auto-Vectorization.
+  Some compilers/JITs detect CPU features (e.g., SSE4, AVX, FMA) at runtime and switch code paths accordingly. On different servers or runs, the detection might vary slightly, causing numeric divergences.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Summation code that can be vectorized.  
+     - Print final sums to detect if different CPU feature detections reorder operations.
+  2. Rounding Mode & Extended Precision Variation  
+     - Combine feature detection with forced rounding mode changes.  
+     - Print results to see if the environment toggles the advanced instructions.
+  3. Denormal & Underflow Detection  
+     - Test subnormal-friendly code. If one CPU path flushes, the other might not.  
+     - Print final results side by side.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Force “no SSE” vs. “SSE” vs. “FMA” code.  
+     - Print differences in final numeric outcomes.
+  5. Speculative & Timing-Sensitive Check  
+     - Check performance counters to branch on CPU feature usage.  
+     - Print which path was taken each run.
+- |
+  Loop Transformation or Reordering.
+  Compilers and JITs frequently unroll or transform loops for performance. This reorders floating-point operations, changing rounding steps and producing different results in different runs.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Use a loop summation that the JIT can unroll or reorder.  
+     - Print final sums to detect changes in summation order.
+  2. Rounding Mode & Extended Precision Variation  
+     - Switch rounding modes mid-loop.  
+     - Print intermediate sums each iteration to see if transformations cause differences.
+  3. Denormal & Underflow Detection  
+     - Perform repeated multiplications near subnormal range in a loop likely to be unrolled.  
+     - Print each iteration result.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Compare a JIT-compiled loop that might vectorize vs. a purely scalar version.  
+     - Print final results to see if reordering occurs.
+  5. Speculative & Timing-Sensitive Check  
+     - Insert a timed decision to change loop shape mid-run.  
+     - Print final data to detect if speculation or reordering changed results.
+- |
+  Fused Multiply-Add (FMA).
+  On CPUs that support FMA, multiplication and addition can happen in one step at higher precision. On CPUs without FMA, these are two operations (two rounding points). This can cause small but real differences.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Summation that includes multiply-then-add operations.  
+     - Print results with FMA enabled vs. disabled.
+  2. Rounding Mode & Extended Precision Variation  
+     - Switch rounding modes while using FMA.  
+     - Print intermediate results to see if single rounding differs from two-step rounding.
+  3. Denormal & Underflow Detection  
+     - FMA can produce different subnormal behaviors if the product is near underflow.  
+     - Print iteration results to detect differences.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Compare a code path using SSE multiply + add vs. one using fused FMA.  
+     - Print final results side by side.
+  5. Speculative & Timing-Sensitive Check  
+     - Insert time-based branching to choose FMA vs. non-FMA at runtime.  
+     - Print which path was taken to see if speculation changes the result.
+

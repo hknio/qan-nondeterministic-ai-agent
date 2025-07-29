@@ -1,0 +1,40 @@
+scope_name: 'Implementation_Bugs__Undefined_Behavior_glibc___stdlib_Race_Conditions'
+prompt: 'Analyze potential non-deterministic behavior within the Implementation Bugs & Undefined Behavior - glibc / stdlib Race Conditions'
+subjects:
+- |
+  Multi-threaded Library Calls.
+  Shared internal data structures (e.g., malloc metadata, stdio buffers) can be modified concurrently by multiple threads. Even on one CPU, time slicing may lead to data races or inconsistent states.
+  Some of test propositions:
+  - Idea 1: Start several threads that repeatedly call `malloc`/`free` in random sequences. Collect final memory usage or a checksum of allocated blocks.
+  - Idea 2: Have multiple threads printing to `stdout` in quick succession. Capture output lines to see if they ever interleave or get corrupted.
+  - Idea 3: Stress-test shared library calls like `strtok` or `gmtime` that are known to have non-thread-safe variants. Print final parsed results.
+  - Idea 4: Insert random short sleeps after library calls in each thread to shift scheduling order, logging the final aggregated result.
+  - Idea 5: Use a shared global object that’s updated by multiple threads with partial synchronization (e.g., one thread locks, another doesn’t). Print a final consistency check.
+- |
+  Signal Handling Races.
+  Signals can arrive at any time relative to a thread’s execution. Handling the signal may interrupt library or user code, causing reentrancy issues or data corruption if not carefully managed.
+  Some of test propositions:
+  - Idea 1: Set up a `SIGALRM` to fire periodically (e.g., every 1 second). In the handler, modify a global counter. In the main thread, read it in a loop and print the final value.
+  - Idea 2: Use `SIGUSR1` to interrupt a multi-threaded program performing I/O. Log the point at which the signal is handled to see if any partial I/O occurs.
+  - Idea 3: Install different signal handlers for multiple signals. Randomly raise them in tight loops. Print out which signals were handled in which order.
+  - Idea 4: Test library calls that are not async-signal-safe (e.g., `printf`) inside a signal handler, capturing whether it leads to garbled output or differences across runs.
+  - Idea 5: Use a small program that intentionally sends signals at random intervals to test how gVisor handles them under load, comparing final logs.
+- |
+  Initialization Races.
+  Many libraries perform lazy initialization of internal data (e.g., the first call to `pthread_create`, `dlopen`, or certain stdlib routines). The order or timing of initialization can differ, potentially causing inconsistent behavior.
+  Some of test propositions:
+  - Idea 1: In multiple threads, call library functions that require lazy initialization (e.g., first call to a math library routine). Print timestamps or counters when each thread completes.
+  - Idea 2: Repeatedly create/destroy threads quickly to force repeated initialization/teardown, logging any errors or anomalies in the output.
+  - Idea 3: Use `dlopen` (if available) to load a small shared library in parallel threads. Print a final load/unload count to detect inconsistent states.
+  - Idea 4: Make calls to system-level or library-level singletons (like `getenv`, `locale` setup) from multiple threads. Print the final environment or locale settings.
+  - Idea 5: Introduce short random delays before and after each initialization call in each thread to see if the final program output differs across runs.
+- |
+  I/O Buffering & Internal Caches.
+  Standard I/O routines often buffer data. If multiple writes occur close together or if flush calls aren’t strictly managed, the final ordering or content can vary.
+  Some of test propositions:
+  - Idea 1: Write to `stdout` without explicit flushing in multiple threads and compare the exact interleaved lines of output.
+  - Idea 2: Force partial writes (e.g., writing small chunks in a loop) while toggling line-buffered vs. fully-buffered modes, then collect and compare the final output.
+  - Idea 3: Access large files in random read patterns (if a file system is permitted) and measure how the library’s caching might change the read sequence or final result.
+  - Idea 4: Use `setvbuf` to alter buffering strategies. Compare how quickly data appears in `stdout` for repeated runs.
+  - Idea 5: Simulate a flush race by calling `fflush` in a signal handler while another thread is actively writing. Compare final logs for anomalies.
+

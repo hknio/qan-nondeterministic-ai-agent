@@ -1,0 +1,32 @@
+scope_name: 'Concurrency__Scheduling_IPC__Inter-Process_Scheduling'
+prompt: 'Analyze potential non-deterministic behavior within the Concurrency & Scheduling - IPC & Inter-Process Scheduling'
+subjects:
+- |
+  Futexes, Condition Variables.
+  When multiple threads or processes wait on a futex or condition variable, the order in which they are awakened can vary due to kernel scheduling decisions, spurious wakeups, or the internal management of wait queues. This leads to unpredictable synchronization outcomes.
+  Some of test propositions:
+  - Many-Waiters Test  
+    Ten threads wait on the same condition variable. One thread signals it once. The awakened threads print “I was woken#1,#2, etc.” The wake order can differ across runs.  
+  - Spurious Wake Logger  
+    Threads do `pthread_cond_wait` in a loop while a condition remains false. Log whenever a thread wakes unexpectedly. Counting spurious wakes across runs reveals variability.  
+  - Futex Bench  
+    Multiple threads block on a futex. One thread triggers a wake. Each awakened thread logs its turn. The order can differ, showing kernel-level nondeterminism.  
+  - Timed Cond Wait  
+    Threads use timed waits (e.g., up to 100ms). Some might time out, others might be signaled. Differences in which threads time out each run demonstrate scheduling variation.  
+  - Chain Reaction  
+    Thread A signals B, B signals C, etc. Each prints when it’s signaled. Small timing shifts can reorder who completes last, exposing nondeterministic wake patterns.
+- |
+  `fork()` & Child Scheduling.
+  After a fork, both parent and child might run almost concurrently. Tiny differences in scheduling or resource re-initialization can cause variations in which process runs first, how they interact with shared file descriptors, or when the child calls `exec()`.
+  Some of test propositions:
+  - Parent vs. Child Print Race  
+    Immediately after `fork()`, both parent and child print a greeting with a timestamp. Compare which appears first across multiple runs.  
+  - Shared File Descriptor Writes  
+    Parent and child write interleaved messages to the same file descriptor. Differences in the merged output order highlight scheduling variation.  
+  - Exec Delay  
+    Child sleeps briefly, then calls `exec()`. Parent logs when it receives a notification or pipe message from the child. Run-to-run differences in timing reveal nondeterminism.  
+  - Library Reinitialization  
+    Child re-initializes a large library, printing progress. Meanwhile, parent does quick tasks. The order in which the child or parent finishes can shift across runs.  
+  - Fork Bomb Variation  
+    In a controlled manner, spawn multiple child processes (each forks again in a small loop). Print each process ID’s completion order. Which child ends last can vary each run.
+

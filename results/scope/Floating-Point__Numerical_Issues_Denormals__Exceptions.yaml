@@ -1,0 +1,61 @@
+scope_name: 'Floating-Point__Numerical_Issues_Denormals__Exceptions'
+prompt: 'Analyze potential non-deterministic behavior within the Floating-Point & Numerical Issues - Denormals & Exceptions'
+subjects:
+- |
+  Gradual Underflow vs. Flush-to-Zero.
+  Gradual underflow preserves subnormals, whereas flush-to-zero sets them to 0. If the environment toggles these modes differently or if microcode changes, results can shift.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Summation of subnormal floats in random orders.  
+     - Print final sums and compare them across runs.
+  2. Rounding Mode & Extended Precision Variation  
+     - Attempt to enable or disable flush-to-zero.  
+     - Print partial results each iteration to see if underflow stays subnormal or goes straight to zero.
+  3. Denormal & Underflow Detection  
+     - Repeated multiplication or division near the smallest representable number.  
+     - Print iteration count when it becomes zero or denormal.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - x87 might handle subnormals differently than SSE.  
+     - Print final outputs for each path.
+  5. Speculative & Timing-Sensitive Check  
+     - Insert a time-based decision on whether to handle subnormals.  
+     - Print final results to see if speculation leads to different underflow states.
+- |
+  Floating-Point Traps / Signals.
+  Some code or libraries raise signals on invalid operations, overflow, or divide-by-zero. If the signal handling or masking differs from run to run, final results (e.g., Infinity vs. a trapped error) can vary.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Summation that deliberately causes overflow.  
+     - Print whether the program saw Inf or generated a trap.
+  2. Rounding Mode & Extended Precision Variation  
+     - Switch FPU exception masking.  
+     - Print if an invalid operation triggers a signal or returns a quiet NaN.
+  3. Denormal & Underflow Detection  
+     - Force underflow or invalid operations near subnormal range.  
+     - Print if the run triggers a signal or silently proceeds.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - SSE vs. x87 might handle exceptions or signals differently.  
+     - Print whether a trap is raised in each path.
+  5. Speculative & Timing-Sensitive Check  
+     - Insert a timed condition to do an invalid FP operation only if “fast enough.”  
+     - Print if the exception occurs or not across runs.
+- |
+  Performance Variations Leading to Timeouts.
+  Handling denormals can be significantly slower on some hardware. If the code runs close to the 5-second limit, random variations in how subnormals are processed may cause inconsistent timeouts or partial results.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Summation of subnormals in a tight loop to push performance.  
+     - Print final result or whether it times out.
+  2. Rounding Mode & Extended Precision Variation  
+     - If rounding mode changes lead to more subnormal usage, it can increase run time.  
+     - Print logs to see if any run hits the 5-second limit.
+  3. Denormal & Underflow Detection  
+     - Multiply a small float repeatedly.  
+     - Print the iteration count at completion to see if some runs fail or skip.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Compare performance of subnormal-heavy code in SSE vs. x87.  
+     - Print whether each path completes before 5 seconds or not.
+  5. Speculative & Timing-Sensitive Check  
+     - Insert time-based branching. If the code is near the limit, speculation might cause a partial skip or different path.  
+     - Print final state to detect if runs differ.
+

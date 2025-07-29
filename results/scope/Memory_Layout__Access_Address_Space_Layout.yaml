@@ -1,0 +1,32 @@
+scope_name: 'Memory_Layout__Access_Address_Space_Layout'
+prompt: 'Analyze potential non-deterministic behavior within the Memory Layout & Access - Address Space Layout'
+subjects:
+- |
+  ASLR (Address Space Layout Randomization).
+  By default, Linux randomizes stack, heap, and library addresses unless ASLR is disabled. This can lead to different memory addresses for each run, affecting pointer-based logic and making results vary from run to run.
+  Some of test propositions:
+  - Print Stack Variable Addresses  
+    Declare a local variable (e.g., `int x`) and print its address. Different addresses across runs indicate ASLR.
+  - Compare Heap Addresses  
+    Dynamically allocate memory several times (`malloc()`), then print pointer values. Varying starting addresses per run show randomness.
+  - Examine Library Function Addresses  
+    Print the function pointer address of a known library function (e.g., `(void*)printf`). If it shifts between runs, shared library mapping is randomized.
+  - Position-Independent Executable (PIE) Check  
+    Compile a PIE binary that prints the address of `main`. If the base address changes, ASLR is active.
+  - Randomized Virtual Memory Map  
+    Call `cat /proc/self/maps` (if accessible) and parse base addresses of segments. Differences confirm address layout randomization.
+- |
+  Kernel Address Space Layout (KASLR).
+  The kernel itself can randomize its base addresses and important internal structures at boot, which may leak into user-space observations (e.g., through timing or special `/proc` files). Even if heavily intercepted by gVisor, remnants of variability can still appear.
+  Some of test propositions:
+  - Indirect Kernel Address Discovery  
+    Repeatedly call a trivial syscall (like `getpid()`) and record any accessible metadata that might reflect kernel offsets.
+  - Timing Side-Channel  
+    Safely attempt invalid kernel address reads (caught or signaled) and measure timing differences that could hint at randomized kernel layouts.
+  - `/proc/kallsyms` Variation  
+    If partially readable, compare offsets in `/proc/kallsyms` across runs to see if addresses shift.
+  - Syscall Table Lookups  
+    In a debug scenario, try to infer syscall table addresses from any permitted introspection. Variations suggest KASLR.
+  - Check for Kernel Image Randomization  
+    Retrieve the vDSO base address with `getauxval(AT_SYSINFO_EHDR)`. If it changes across runs, it hints at KASLR effects.
+

@@ -1,0 +1,22 @@
+scope_name: 'CPU__Microarchitecture_Hardware_Transactional_Memory_HTM'
+prompt: 'Analyze potential non-deterministic behavior within the CPU & Microarchitecture - Hardware Transactional Memory (HTM)'
+subjects:
+- |
+  Lock Elision (TSX).
+  With Intel TSX or similar HTM, locks can be elided in hardware transactions. These transactions can abort for many reasons (capacity limits, cache conflicts, spurious aborts), causing fallback to traditional locking. Slight timing or data-access changes can alter the abort rate each run, leading to unpredictable performance or path differences.
+  Some of test propositions:
+  1. High-Contention Lock Benchmark  
+     - Rapidly acquire/release a single shared lock from multiple threads (time-sliced on one CPU). Print the ratio of hardware transactional successes to aborts. Run-to-run differences in abort frequency expose nondeterminism.
+  
+  2. Capacity Stress  
+     - Perform large in-transaction data writes near the hardware transaction capacity limit. Print how many transactions commit vs. abort. Minor timing changes can tip the system into more frequent aborts.
+  
+  3. Conflicting Writes  
+     - Repeatedly write to the same cache lines in quick succession from multiple threads. Print the number of aborts. Even small scheduling variations can cause conflicts in one run and not in another.
+  
+  4. Transaction vs. Lock Fallback Timing  
+     - Measure and print how long each operation takes in a successful transaction vs. fallback lock path. Small differences across runs can change how often the fallback path is used.
+  
+  5. Varying Transaction Complexity  
+     - Alternate phases of small, trivial transactions with phases of large, complex transactions. Print the fraction of successful commits in each phase. Run-to-run or host-to-host differences can shift these success rates.
+

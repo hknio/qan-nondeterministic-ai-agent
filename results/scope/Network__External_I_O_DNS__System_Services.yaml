@@ -1,0 +1,40 @@
+scope_name: 'Network__External_I_O_DNS__System_Services'
+prompt: 'Analyze potential non-deterministic behavior within the Network & External I/O - DNS & System Services'
+subjects:
+- |
+  DNS Resolution Timing.
+  - Multiple DNS records: A domain with multiple A/AAAA records can return different IPs each query.  
+  - DNS caching: Varying TTL or local caches affect resolution over time.  
+  - Timeouts & retries: Slow or unreachable DNS servers can cause fallback or different order in resolution.  
+  - UDP vs. TCP fallback: Large DNS replies may force TCP usage, possibly changing the query sequence.  
+  - Container resolver configs: The ephemeral environment may have changing `/etc/resolv.conf` or different fallback servers.
+  Some of test propositions:
+  1. Repeated Lookup  
+     - Resolve a hostname known to have multiple IP addresses (e.g., `pool.ntp.org`), print the returned IPs in order. Compare results across runs.  
+  2. Check Resolution Latency  
+     - Perform repeated DNS lookups for the same domain, measure and print query time. Look for outliers or failures.  
+  3. Parallel DNS Queries  
+     - Send multiple DNS queries at once for different domains, print IPs in arrival order. Observe potential reordering or inconsistent responses.  
+  4. Fallback Resolver Check  
+     - Force a scenario where the primary DNS server times out (if possible in the environment), then print which DNS server responded. Inconsistency suggests nondeterminism.  
+  5. IPv4/IPv6 Preference  
+     - Perform lookups for a domain that has both A (IPv4) and AAAA (IPv6) records, then print which record the resolver returns first. Changes across runs indicate nondeterminism.
+- |
+  System Daemons.
+  - systemd/dbus: Their responses can vary based on internal state or startup timing.  
+  - Stateful daemons: Some daemons increment counters or keep logs that change responses.  
+  - Concurrency: Other processes sending dbus or daemon requests can reorder messages.  
+  - Runtime factors: Daemons often rely on system time or environment variables.  
+  - Minimal environment: Even a stripped-down container might include small background services (e.g., logging).
+  Some of test propositions:
+  1. dbus Query  
+     - If `dbus` is available, send a basic request (like listing services) and print the result. Compare responses across runs for changes.  
+  2. Repeated Service Calls  
+     - Query the same daemon method multiple times in one run, printing any counters or timestamps it returns. Inconsistencies signal nondeterminism.  
+  3. Concurrent Requests  
+     - Send multiple simultaneous daemon queries (if supported) and print responses as they arrive. Race conditions might reorder them differently each run.  
+  4. Service Restart/Reload  
+     - If possible in the environment, restart or reload a small daemon, then query it again and print results. Inconsistent states after restart indicate nondeterminism.  
+  5. System Logging Test  
+     - Write to a system log service (if present) and immediately read back the logs, printing the results. Variation in log ordering or missing entries suggests nondeterminism.
+

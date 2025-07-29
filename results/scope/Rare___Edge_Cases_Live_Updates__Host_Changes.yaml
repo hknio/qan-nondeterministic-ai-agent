@@ -1,0 +1,32 @@
+scope_name: 'Rare___Edge_Cases_Live_Updates__Host_Changes'
+prompt: 'Analyze potential non-deterministic behavior within the Rare / Edge Cases - Live Updates & Host Changes'
+subjects:
+- |
+  Kernel / gVisor Upgrades.
+  Updating the host kernel or gVisor mid-run can change syscall implementations, scheduling, or resource behavior. Even minor library changes can alter function outputs or error codes.
+  Some of test propositions:
+  - Syscall Fingerprint Test  
+    Enumerate a set of syscalls in a loop (open, read, write, etc.) and print their return codes. Changes after an update may reveal differences.
+  - Version Info Snapshot  
+    Continuously query system version data (`/proc/version`) and print it. If a kernel/gVisor upgrade occurs, the reported version may change unexpectedly.
+  - Dynamic Library Injection  
+    Dynamically load shared libraries and print function addresses/outputs. Changes in these values may signal an upgrade or library modification.
+  - Stable ABI Stress  
+    Call a set of stable syscalls repeatedly (e.g., `uname()`, `time()`) and compare outputs. Any format or return-value change could indicate an update.
+  - Hot Patch Reaction  
+    Continuously measure performance of a fixed workload. Print deviations in timing that might coincide with a hot patch applied to the kernel.
+- |
+  Host Power Management.
+  Power management mechanisms (C-states, SMIs, thermal throttling, dynamic frequency scaling) can pause or slow the CPU, causing irregular execution times.
+  Some of test propositions:
+  - Clock Drift Measurer  
+    Repeatedly perform a known task and measure its duration using high-resolution timers. Print any spikes or anomalies in the timing results.
+  - Thermal Load Generator  
+    Run CPU-intensive tasks and track real-time performance metrics (e.g., operations per second). Print dips in performance if thermal throttling kicks in.
+  - Sleep Duration Checker  
+    Call `sleep(1)` (or similar) in a loop, measuring actual elapsed time. Print large deviations that might indicate deep sleep states or SMIs.
+  - DFS Detection  
+    Continuously read CPU frequency (if available) or measure a known computation loop. Print frequency changes or computation speed changes to detect dynamic scaling.
+  - Interrupt Storm Simulation  
+    Generate rapid I/O interrupts (e.g., via frequent filesystem operations). Print latencies or stalls to see if SMIs or power management triggers irregular pauses.
+

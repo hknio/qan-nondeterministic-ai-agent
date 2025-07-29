@@ -1,0 +1,45 @@
+scope_name: 'Time__Clocks_Paravirtualized_Clocks'
+prompt: 'Analyze potential non-deterministic behavior within the Time & Clocks - Paravirtualized Clocks'
+subjects:
+- |
+  kvm-clock vs. TSC.
+  A paravirtualized clock (e.g., `kvm-clock`) may resync or drift relative to the TSC if:
+  - The hypervisor applies corrections.
+  - The system tries to keep paravirtual clock in sync with the host, causing jumps.
+  Some of test propositions:
+  - Idea 1: Repeatedly read `clock_gettime(CLOCK_REALTIME)` (if tied to kvm-clock) and `RDTSC` back to back in a loop (for ~2 seconds). Print both. Compare if their ratio or offsets randomly shift across runs.  
+  - Idea 2: Read the paravirtual clock at container start, do a quick 2-second loop, then read it again. Repeat across many starts on various servers. If a resync occurs, you might see unexpected jumps.  
+  - Idea 3: In a loop, measure the difference between `CLOCK_MONOTONIC` and `CLOCK_REALTIME`. If kvm-clock gets corrected, that difference might drift or suddenly change.  
+  - Idea 4: Perform a short busy loop for 2 seconds while frequently reading kvm-clock. Check if any read shows a sudden jump backward or forward by more than a few microseconds.  
+  - Idea 5: Compare final timestamps from consecutive container runs. If each run’s “end time” is drifting relative to real-world time or the TSC, it suggests the hypervisor might be adjusting kvm-clock at startup or mid-run.
+- |
+  Hypervisor-Specific Clock Sources.
+  Different hypervisors (e.g., Xen, Hyper-V) offer paravirtual clocks that may:
+  - Update in discrete steps.
+  - Apply frequency offsets differently than KVM.
+  Some of test propositions:
+  - Idea 1: Print which paravirtualized clock source is in use (e.g., reading `/sys/devices/system/clocksource/clocksource0/current_clocksource`) at container start. If different hosts use different sources, watch for variation in timing tests.  
+  - Idea 2: Repeatedly call `clock_gettime(CLOCK_REALTIME)` (tied to the hypervisor clock) for a few seconds. Track if the increments remain uniform or show small, random resets across runs on different servers.  
+  - Idea 3: Measure the difference between `CLOCK_MONOTONIC` and the paravirtual clock in a tight loop for ~2 seconds. If the hypervisor occasionally updates its clock source, you might see the difference fluctuate.  
+  - Idea 4: Run a 3-second busy loop that prints timestamps from the paravirtual clock every 0.5 seconds. Compare the intervals across multiple servers (with different hypervisors) to detect if one hypervisor yields bigger timing drifts.  
+  - Idea 5: If the environment can have CPU load on the host, re-run the same short paravirtual clock test under host load. Check if the printed intervals differ more significantly, hinting at hypervisor-induced adjustments.
+- |
+  Snapshot / Suspend / Resume.
+  If the hypervisor or environment supported snapshotting/suspending, the guest clock could jump forward or backward upon resume. However, in a 5-second container limit, typical snapshot/resume testing is generally not performed from inside. If such features were allowed externally, the container’s paravirtual clock might appear non-deterministic after restore.
+  Some of test propositions:
+  *(In many minimal container setups, these may not be directly feasible, but if the environment triggers snapshots externally, short runs can detect resumed time jumps.)*  
+  - Idea 1: Immediately on container start, print `CLOCK_MONOTONIC`. If the container was resumed from a snapshot by an external process, this timestamp might reflect an older or advanced baseline.  
+  - Idea 2: If the environment externally suspends and resumes the container within the 5-second window, log `CLOCK_MONOTONIC` before/after. Look for negative or large jumps.  
+  - Idea 3: Track both `CLOCK_MONOTONIC` and `CLOCK_REALTIME` at container start and end. If a resume from snapshot occurs in between, they might show inconsistent intervals.  
+  - Idea 4: Compare TSC values read at container startup if external snapshot/restore is done between runs. Large changes can signal offset reapplication.  
+  - Idea 5: Attempt a quick 2-second busy loop, then forcibly suspend/resume from the host side, continue 2 more seconds, and check if the final time or TSC drastically differs from a baseline run without suspension.
+- |
+  Boot or Start-of-Container Offsets.
+  When the container or VM boots, the hypervisor might apply an initial clock offset. Small scheduling or host timing differences can make each “initial time” differ slightly.
+  Some of test propositions:
+  - Idea 1: Immediately at container start, read `CLOCK_MONOTONIC` once and print it, then exit. Compare that initial reading across many runs on different servers to detect random offsets.  
+  - Idea 2: Read `CLOCK_MONOTONIC` at the very start, do a 2-second busy loop, read it again, print the difference. If the initial monotonic baseline is drifting, repeated runs may show inconsistent intervals.  
+  - Idea 3: Check `/proc/uptime` right after launch. Print the first line. Re-run the container multiple times quickly. If the hypervisor sets a different baseline offset each time, you’ll see variations.  
+  - Idea 4: Immediately read both `CLOCK_MONOTONIC` and `CLOCK_REALTIME` at startup. If `REALTIME` is being adjusted on boot but `MONOTONIC` is not, the difference might vary unpredictably across runs.  
+  - Idea 5: Start the container, print “start time” from any paravirtual clock, then exit quickly (all within 1 second). Compare these start times across multiple host servers. Inconsistent offsets hint the hypervisor is assigning a fresh baseline each boot.
+

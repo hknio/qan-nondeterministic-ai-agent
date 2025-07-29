@@ -1,0 +1,46 @@
+scope_name: 'Process_Management__Signals_Signal_Interactions'
+prompt: 'Analyze potential non-deterministic behavior within the Process Management & Signals - Signal Interactions'
+subjects:
+- |
+  Non-deterministic item: Async I/O vs. Signals.
+  Signals like `SIGCHLD`, `SIGALRM`, or runtime-generated signals can interrupt blocking or non-blocking I/O calls, returning `EINTR` at unpredictable moments. Minor scheduling shifts alter when a signal arrives relative to I/O operations.
+  Some of test propositions:
+  1. Signal-Interrupted I/O Tester  
+     - Main process continuously performs blocking reads on a pipe. A helper process sends signals at random intervals. The program logs how many times I/O returns `EINTR`. Compare across runs.
+  2. EINTR Retry Logger  
+     - Performs repeated file or socket reads in a loop, logging each interruption by a signal. If the number or timing of interruptions changes on different validators, it indicates non-determinism.
+  3. Asynchronous Write with Intermittent Signals  
+     - Sets up non-blocking writes with `select()`/`poll()`. Another process sends signals. Logs how often a write is retried or interrupted. Compare counts across multiple runs.
+  4. Timed Alarms in I/O Loop  
+     - Uses `alarm(1)` while performing repeated I/O operations. Logs how often the alarm signal interrupts the I/O. Variation across hosts/runs reveals signal timing differences.
+  5. Combined Read/Write Race  
+     - Simultaneously reads from and writes to a file descriptor, while a signal fires. Logs the sequence of read/write completions. Differing sequences across runs show non-deterministic I/O interruption.
+- |
+  Non-deterministic item: Process Termination & Wait Races.
+  When multiple processes terminate, slight timing shifts can alter which `SIGCHLD` arrives first and how quickly the parent’s `wait()` calls complete. This can change the observed exit order, the timing of reaps, and the parent’s state when signals arrive.
+  Some of test propositions:
+  1. Multiple-Child Race & Exit Order Test  
+     - Spawns multiple children that terminate at various intervals. The parent logs the order in which `wait()` returns child exit statuses. Compare across runs for ordering changes.
+  2. Child Exit vs. Parent Wait Delays  
+     - Child signals the parent just before exiting. The parent calls `wait()` immediately. Logs time difference between child exit and wait completion. Look for variability across servers.
+  3. Signal Masking & Release  
+     - Temporarily blocks `SIGCHLD` in the parent, then unblocks it after a delay. Logs how many child exits arrive simultaneously upon release. Variation in the batch size indicates differences in timing.
+  4. Staggered Terminations  
+     - Schedules children to exit at 1s, 2s, and 3s intervals. The parent logs exact times `wait()` completes for each. If the second child sometimes finishes reaping before the first, it shows a race.
+  5. Signal Burst Stress  
+     - Spawns numerous short-lived children that exit almost at once. The parent checks how quickly it processes all `SIGCHLD` signals. Different runs might show different sequences of reaping.
+- |
+  Non-deterministic item: Other Signal Sources.
+  Signals can be triggered by the container runtime (e.g., time limit exceeded), by hardware traps (`SIGSEGV`, `SIGFPE`), or by other unexpected conditions. The moment these signals arrive can depend on subtle runtime details like scheduling or memory usage.
+  Some of test propositions:
+  1. Forced Signal & Resource Limit Tester  
+     - A program approaches the 5-second CPU limit, triggering a `SIGKILL`. In parallel, a child triggers a segmentation fault. Logs which signal arrives first or if they race. Compare across multiple runs.
+  2. Floating-Point Exception Trigger  
+     - Intentionally triggers a `SIGFPE` via divide-by-zero in one thread while another thread does normal work. Logs if the second thread is affected or interrupted differently across runs.
+  3. Runtime-Imposed Timeout  
+     - Sets a 4.9-second loop nearing the time limit. Records how often it is forcibly killed vs. how often it completes just in time. Variations in microsecond scheduling can cause different outcomes.
+  4. Signal Storm  
+     - Sends a burst of signals (e.g., `SIGUSR1`) from a helper process. Logs the order and timing of arrival in the main process. Check for inconsistent patterns across servers.
+  5. Memory Limit Checker  
+     - Approaches the 1024 MB limit by allocating large chunks. Logs if/when the container runtime sends a kill signal for OOM. Timing or partial allocations might differ across runs.
+

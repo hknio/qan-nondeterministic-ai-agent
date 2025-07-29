@@ -1,0 +1,74 @@
+scope_name: 'Language_Runtimes__Libraries_Garbage_Collection_GC'
+prompt: 'Analyze potential non-deterministic behavior within the Language Runtimes & Libraries - Garbage Collection (GC)'
+subjects:
+- |
+  GC Trigger Timing.
+  GC can be triggered when memory thresholds are reached, but slight differences in allocation patterns or scheduling can cause GC cycles to start at varying times, potentially changing the program’s visible behavior or performance in unpredictable ways.
+  Some of test propositions:
+  1. Allocation Stress Loop  
+     - Repeatedly allocate objects in a loop while logging each GC event (if the runtime provides a GC callback or verbose log mode). Compare which iteration triggers GC across runs.
+  2. Short-Lived vs. Long-Lived Objects  
+     - Mix allocations of small short-lived objects with a few large objects. Print the iteration index of each successful allocation. If GC triggers at unpredictable times, the iteration count at GC can differ across runs.
+  3. Forced Partial vs. Full GC  
+     - In some runtimes, you can hint for a partial or full GC. Log the type of GC (e.g., “minor” vs. “major”) that actually occurs and compare runs to see if the same sequence occurs each time.
+  4. GC Overhead Logging  
+     - If possible, print how much time the GC took. Varying overhead can imply it ran at different phases, revealing nondeterminism if the overhead changes run to run.
+  5. Compare Memory Footprint  
+     - Periodically check the heap or memory usage. Print the usage after each allocation burst. The timing of GC might shift the usage significantly across runs.
+- |
+  Concurrent / Parallel GC Races.
+  Many garbage collectors work in parallel or concurrently with the application. Thread scheduling differences can lead to distinct timings or partial completions of GC phases, which might reorder finalizations, object movement, or overall performance.
+  Some of test propositions:
+  1. High Allocation + Print  
+     - Run many threads (or tasks) that each allocate memory while a main loop prints “heartbeat” logs. The interplay between parallel allocation and concurrent GC can produce different log sequences.
+  2. Heap Snapshot Check  
+     - Some runtimes allow printing a GC “snapshot” or summary. Capture it multiple times during the run. If concurrent GC phases interleave differently, snapshots can show different object counts at the same approximate time.
+  3. Allocation + CPU Work  
+     - Mix heavy CPU-bound tasks with heavy allocation, logging iteration steps. On a single CPU, context switches with GC threads might occur at slightly different times each run.
+  4. Random Sleep Injection  
+     - Randomly sleep for short intervals in different threads performing allocations. Log each sleep start/end. If the GC tries to run concurrently, the overall timeline can differ across runs.
+  5. Repeated Short Runs  
+     - Execute your test 10+ times in quick succession. Compare the timestamps or the order of logs related to GC events. Inconsistent concurrency scheduling typically emerges after multiple attempts.
+- |
+  Object Layout & Address.
+  Moving or compacting garbage collectors can relocate objects in memory. While higher-level languages may obscure raw addresses, advanced reflection or debugging APIs might reveal addresses or layout details that differ between runs. This can cause nondeterminism if the program inspects or depends on those addresses.
+  Some of test propositions:
+  1. Reflection of Identity Hash Codes  
+     - In some languages, an object’s identity hash code can depend on its address or a GC-specific scheme. Print these hash codes for many objects. If they differ each run, it indicates nondeterminism.
+  2. Address Lookup via Unsafe APIs  
+     - If the runtime allows an “unsafe” or low-level interface (e.g., `sun.misc.Unsafe` in Java), query object addresses and print them. Compare across runs for differences.
+  3. Concurrent Allocation & Relocation  
+     - Allocate many objects, hold references, then force a compaction GC. Print any address-like values (or identity hash codes) before and after GC. Changes reflect nondeterministic layout.
+  4. Large vs. Small Allocation Mix  
+     - Create different object sizes in a random sequence, and log each object’s identity or reference details. If the GC moves them around differently each run, you may see unexpected patterns in the logs.
+  5. Repeated Slices  
+     - Repeatedly create slices or subarrays of objects, forcing the runtime to place them in memory. Print partial checksums or identity info. Minor variations can surface due to object layout changes.
+- |
+  Finalization Ordering.
+  Managed languages use finalizers that run when the GC determines an object is collectible. The queueing order and exact timing can differ, causing resources to be released in different sequences or at different points in time.
+  Some of test propositions:
+  1. Finalizer-ID Print  
+     - Give each allocated object a unique ID that’s printed in its finalizer. Create many objects quickly, then let them go out of scope. Compare the order of IDs printed across runs.
+  2. Resource Count Log  
+     - Each finalizer closes a resource (e.g., a file handle or a dummy object). Print the count of closed resources at intervals. The difference in finalization timing can yield different counts at those intervals.
+  3. Staggered Object Creation  
+     - Create objects in waves (e.g., 100 at a time), each wave having a distinct ID range. Print finalizer messages. If finalizer ordering is truly unpredictable, wave-specific finalizations may interleave differently.
+  4. Sporadic GC Calls  
+     - Manually call or hint for GC at random points (if permitted). Log how many objects are finalized after each hint. Variation in finalization count indicates nondeterminism.
+  5. Competitive Allocation  
+     - In a tight loop, allocate objects while also finalizing older objects. Print out finalization times to stdout. The interleaving of creation and finalization can vary each run.
+- |
+  Minor vs. Major GC Cycles.
+  Some garbage collectors split collections into minor (young generation) and major (full heap) cycles. The thresholds or heuristics for promoting objects or triggering a major collection can differ between runs based on subtle timing or allocation patterns.
+  Some of test propositions:
+  1. Young-Gen Fill Test  
+     - Rapidly allocate short-lived objects to fill the young generation, and log each minor GC event. Compare the number of minor GCs that occur before a major GC is triggered.
+  2. Promotion Threshold Logging  
+     - If possible, log how many objects are promoted from young to old gen. Slight timing differences can cause different promotion rates, revealing nondeterminism if totals differ at the same points.
+  3. Forced Large Allocation  
+     - Occasionally allocate a large chunk of memory to push the collector into a major GC. Print the iteration count or time of that large allocation. The exact moment of the major GC may differ across runs.
+  4. Mixed-Survival Objects  
+     - Create objects that sometimes persist across minor GCs, sometimes not, depending on run conditions (random usage patterns). Print which objects survived to major GC. Variation in survival reveals nondeterminism.
+  5. GC Cycle Type Printout  
+     - Use verbose GC logging or an equivalent mechanism to print “minor GC” vs. “major GC” events. Compare logs across multiple runs to see if the sequence and timing of these cycles differ.
+

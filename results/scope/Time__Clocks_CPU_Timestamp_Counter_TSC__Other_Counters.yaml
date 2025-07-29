@@ -1,0 +1,48 @@
+scope_name: 'Time__Clocks_CPU_Timestamp_Counter_TSC__Other_Counters'
+prompt: 'Analyze potential non-deterministic behavior within the Time & Clocks - CPU Timestamp Counter (TSC) & Other Counters'
+subjects:
+- |
+  RDTSC / RDTSCP Instructions.
+  Directly reading CPU cycle counters can differ because:
+  - CPU frequency scaling or hypervisor scheduling changes the rate at which TSC increments.
+  - Inconsistent TSC offsets on different hosts or across reboots.
+  Some of test propositions:
+  - Idea 1: In a tight loop (a few million iterations within 5 seconds), call `RDTSC` repeatedly and print the difference between consecutive reads. Check if you see large irregular jumps across runs.  
+  - Idea 2: Measure `RDTSC` before and after a short known delay (like a 1-second sleep). Compare the measured cycle counts across runs to see if the TSC rate is consistent.  
+  - Idea 3: If you can detect the nominal CPU frequency, calculate expected cycles for a ~1-second span. Print observed vs. expected cycle counts. Large discrepancies might indicate frequency scaling.  
+  - Idea 4: Read `RDTSC` 10 times in quick succession at container start. Do the same test across multiple servers. If the hypervisor sets different offsets, initial readings may vary widely.  
+  - Idea 5: Combine `RDTSC` with a real-time timestamp in the same loop. Print both to correlate cycle count changes against real-time increments. Inconsistent correlation might reveal TSC drift or offset changes.
+- |
+  rdpmc (Read Performance Counter).
+  Reading hardware performance counters (`rdpmc`) can vary run to run due to:
+  - Different CPU event occurrences (cache hits, misses, branches).
+  - Scheduling differences that change how many performance events occur in the same code path.
+  Some of test propositions:
+  - Idea 1: Execute a fixed-size CPU-bound task (e.g., a small matrix multiplication) while calling `rdpmc` before and after. Print the difference in performance counter values across runs.  
+  - Idea 2: In a tight loop for ~2 seconds, repeatedly call `rdpmc` to measure instructions or cache events. Print min/max readings. Compare across multiple runs for consistency.  
+  - Idea 3: Alternate a quick busy loop with a short sleep (e.g., 1 second total test) while reading `rdpmc`. Check if random scheduling changes lead to different performance event counts.  
+  - Idea 4: Compare a trivial “do-nothing” loop with a more cache-intensive loop. Print both sets of performance counter results in the same 5-second run. If the environment is stable, you should see a predictable difference each time.  
+  - Idea 5: Run the same test on different servers, each logging the final performance counter result. A large variation might indicate hardware or hypervisor-specific differences in how counters are exposed or incremented.
+- |
+  Other Time-Related Syscalls / Clock IDs.
+  Calls like `clock_gettime(CLOCK_PROCESS_CPUTIME_ID)` or `CLOCK_THREAD_CPUTIME_ID` can fluctuate if:
+  - Scheduling is not deterministic.
+  - The container’s single CPU is shared among other processes on the host, causing small variations in CPU availability.
+  Some of test propositions:
+  - Idea 1: Use `clock_gettime(CLOCK_PROCESS_CPUTIME_ID)` at the start and end of a short busy loop. Print the CPU time used. Repeat multiple times to see if the reported usage drifts.  
+  - Idea 2: Create a small multi-threaded program (even on a single vCPU) and measure `CLOCK_THREAD_CPUTIME_ID` in each thread for a short period. Compare across runs to see if thread scheduling introduces differences.  
+  - Idea 3: Read `/proc/stat` quickly in a loop for ~2 seconds and print CPU usage fields. Minor unpredictability in scheduling can show up as varying increments across runs.  
+  - Idea 4: Alternate 1 second of I/O with 1 second of CPU work, measuring `CLOCK_PROCESS_CPUTIME_ID` after each phase. Check if the ratio of CPU-to-real time remains consistent across runs.  
+  - Idea 5: Call `times()` (which returns process and child CPU times) repeatedly in a quick loop. Print deltas. Compare run-to-run to see if small scheduling delays cause outliers.
+- |
+  Hardware or Paravirtual Offsets.
+  Hypervisors can apply offsets to the guest TSC or other counters. Those offsets may:
+  - Differ between container/VM starts.
+  - Change if the hypervisor decides to synchronize differently on each boot.
+  Some of test propositions:
+  - Idea 1: Immediately after container launch, read `RDTSC` once and print it. Across many container starts on different servers, compare initial values. Large random initial offsets might indicate paravirtual offsets.  
+  - Idea 2: Read TSC and also call `clock_gettime(CLOCK_MONOTONIC)` in the same moment, printing both. If an offset is re-applied unexpectedly, the ratio or difference can shift across runs.  
+  - Idea 3: In a quick loop (a second or two), read TSC repeatedly. If the hypervisor injects an offset mid-run, you might observe an abrupt jump. Compare runs to see if it ever happens.  
+  - Idea 4: Perform a short CPU-bound workload, measure TSC at the start and end, and compare to real-time. If the hypervisor adjusts the TSC rate or offset, the measured cycles per second might vary across runs.  
+  - Idea 5: Launch the container quickly multiple times. Each run prints the “initial TSC” and “initial real-time.” If these two keep changing in unpredictable ways, it points to a paravirtual offset difference.
+

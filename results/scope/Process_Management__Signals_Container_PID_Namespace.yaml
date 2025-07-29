@@ -1,0 +1,46 @@
+scope_name: 'Process_Management__Signals_Container_PID_Namespace'
+prompt: 'Analyze potential non-deterministic behavior within the Process Management & Signals - Container PID Namespace'
+subjects:
+- |
+  Non-deterministic item: Namespace PID Start.
+  Inside a PID namespace, the main process often sees itself as PID 1. However, small differences in container initialization or ephemeral processes can shift subsequent PID assignments, causing variations in observed PIDs across hosts or runs.
+  Some of test propositions:
+  1. PID Namespace Self-Reflection Test  
+     - Main process logs `getpid()` (should be 1 in the namespace). Spawns a child which also logs its PID. Compares these outputs across runs for unexpected variations.
+  2. Sequential Child Creation  
+     - Creates multiple children one by one, each logging its PID. Tracks if the numeric sequence increments predictably. Differences in assigned IDs across runs can indicate non-determinism.
+  3. Parent-Child Namespace Inspection  
+     - Both parent and child check `/proc/self` and `/proc/<child-pid>` to confirm PIDs. If ephemeral processes or timing cause differences in assigned PIDs, the logs will change run-to-run.
+  4. Namespace Startup Timing  
+     - Immediately after container launch, logs the main process’s PID. Then spawns a child at different time intervals (0.5s, 1s, 2s) to see if PIDs differ unpredictably across repeated container starts.
+  5. Synchronized Child Launches  
+     - Launches two children nearly simultaneously, each expecting a consecutive PID. If concurrency leads to out-of-order assignment in certain runs, that indicates non-determinism.
+- |
+  Non-deterministic item: Interaction with Parent Host Namespace.
+  Even though the container sees a restricted PID view, the host may assign different underlying PIDs or have different init processes across validator servers. Error messages or logs referencing host-level PIDs can thus vary, and container PPID references can differ if the host’s init differs.
+  Some of test propositions:
+  1. Host PID Logging from Error Messages  
+     - Intentionally cause a small crash or error that logs the host PID in the container’s dmesg or error output. Compare that host PID across runs/servers.  
+  2. Container Start PPID Check  
+     - On startup, log the container’s `getppid()`. If the parent host process differs among validators or runs, you’ll see variation.
+  3. Cross-Namespace `/proc` Peek  
+     - If permitted, briefly attempt to read host PID references in any sysfs or error logs. Variation across servers indicates different host-level process references.
+  4. Compare Container vs. Host Timestamps  
+     - Check if any logs display host times/PIDs at container startup. Subtle differences can reveal race conditions or different parent processes.
+  5. Signal from Host  
+     - Have the host send a signal (e.g., `SIGUSR1`) to the container’s main process from an external script. Log if the container sees varying host PIDs or signal source IDs across runs.
+- |
+  Non-deterministic item: Mount/Proc Isolation.
+  The container has its own `/proc` namespace. However, ephemeral processes or timing differences may produce different `/proc` entries. The order in which they appear or disappear can vary, especially if the container runtime spawns short-lived utility processes.
+  Some of test propositions:
+  1. `/proc` Enumeration Stability Check  
+     - Repeatedly lists all PIDs under `/proc`. Logs the sequence of discovered PID directories. Compare runs to see if ephemeral processes appear/disappear unpredictably.
+  2. Snapshot vs. Real-Time `/proc`  
+     - Compares a snapshot of `/proc` at two close intervals, looking for differences in ephemeral process entries. Differences across runs can reveal timing issues.
+  3. Mount Table Logger  
+     - Inspects `/proc/mounts` or equivalent to ensure the container’s mount points are consistent. If the runtime environment injects different mounts at startup, it will appear in logs.
+  4. Simulated Daemon Start/Stop  
+     - A short-lived background “daemon” process is started and quickly stopped. The main process checks `/proc` at intervals. Variation in whether the daemon appears can indicate timing differences.
+  5. Process Tree Tracker  
+     - Queries `/proc/<pid>/stat` or `/proc/<pid>/status` for all running processes at multiple time points. If ephemeral processes come and go at different times across runs, it reveals non-deterministic process states.
+

@@ -1,0 +1,32 @@
+scope_name: 'Containerization__Virtualization_cgroups__Resource_Throttling'
+prompt: 'Analyze potential non-deterministic behavior within the Containerization & Virtualization - cgroups & Resource Throttling'
+subjects:
+- |
+  CPU Quotas & Scheduling.
+  The host enforces CPU quotas through cgroups. Throttling may occur at unpredictable intervals if usage spikes. Scheduling policies can shift resource allocation based on overall system load, causing variable performance or timings.
+  Some of test propositions:
+  - CPU-Bound Loop  
+    Runs a tight loop for a fixed duration (up to 5 seconds) and prints how many iterations completed. Differences between runs suggest throttling variance.
+  - Multi-Process CPU Stress  
+    Spawns several processes each doing CPU-bound tasks, printing time to complete. Variation in completion times reflects changing CPU quota distribution.
+  - Burst vs. Steady Load Test  
+    Alternates short spikes of high CPU usage with idle periods, logging any throttle durations (e.g., if accessible via `cgroup` stats). Large differences across runs show unpredictable host scheduling.
+  - Priority Inversion Simulation  
+    Runs processes with differing nice levels. Each prints timestamps of key steps. If cgroup or VM scheduling inverts priorities, logs will show inconsistent ordering or delays.
+  - Real-Time Emulation Check  
+    Attempts to set a higher scheduling priority (if allowed). Logs actual latencies for a trivial task. Unpredictable stalls or missed deadlines reveal cgroup constraints or host scheduling interference.
+- |
+  Memory Pressure.
+  When memory usage nears the 1024 MB limit, the kernel can trigger reclaim or compaction. The timing of these actions (e.g., page cache trimming, partial OOM events) can vary, causing unpredictable stalls or allocation failures.
+  Some of test propositions:
+  - Memory Allocation Stress  
+    Rapidly allocates large blocks until near 1024 MB, printing success/failure or any slowdown. If reclaim triggers at different moments across runs, the observed behavior changes.
+  - File Cache Test  
+    Repeatedly reads/writes a large file, printing page cache usage stats from `/proc/meminfo`. Variation in cache hits or eviction patterns indicates nondeterministic memory management.
+  - Fork Bomb Light  
+    Spawns many short-lived processes to stress memory usage. Each process prints a startup message. Run-to-run differences in whether processes succeed or fail show random OOM or partial kills.
+  - Compaction Trigger  
+    Allocates/free blocks of various sizes in random order, measuring time for each allocation. Sudden spikes in allocation latency suggest unpredictable kernel compaction events.
+  - Simultaneous Large Allocation  
+    Two processes each try to allocate half the available memory simultaneously, printing success or error. Different outcomes (who gets memory first) across runs reflect nondeterministic reclaim timing.
+

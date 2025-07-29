@@ -1,0 +1,28 @@
+{
+    "name": "QAN AI Agent",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "remoteUser": "vscode",
+    "features": {
+        "ghcr.io/devcontainers-extra/features/poetry:2": {},
+        "ghcr.io/devcontainers/features/git:1": {},
+        "ghcr.io/devcontainers/features/github-cli": {}
+    },
+    "containerEnv": {
+        //"QAN_SERVERS": "http://s1.server.com:8000 http://s2.server.com:8000 http://s3.server.com:8000",
+        //"API_SERVER_URLS": "http://s1.server.com:8000 http://s2.server.com:8000 http://s3.server.com:8000",
+        "POETRY_VIRTUALENVS_IN_PROJECT": "true",
+        "POETRY_VIRTUALENVS_CREATE": "true"
+    },
+    "postCreateCommand": "poetry config virtualenvs.in-project true && poetry install --no-interaction",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+                "python.poetryPath": "poetry"
+            }
+        }
+    }
+}

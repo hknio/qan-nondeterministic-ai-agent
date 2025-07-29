@@ -1,0 +1,76 @@
+scope_name: 'CPU__Microarchitecture_Additional_Microarchitectural_Factors'
+prompt: 'Analyze potential non-deterministic behavior within the CPU & Microarchitecture - Additional Microarchitectural Factors'
+subjects:
+- |
+  Pipeline Resource Contention.
+  CPUs have multiple execution units (integer, floating-point, load/store), reorder buffers, and scheduling logic. If code sequences or timings vary slightly, the pipeline can stall or reorder instructions differently. This can lead to unpredictable performance differences, especially in tight loops with mixed instruction types.
+  Some of test propositions:
+  1. Floating-Point Pipeline Saturation  
+     - Run a loop performing back-to-back floating-point operations. Print how many operations complete in 5 seconds. Minor micro-timing changes can affect how instructions queue in the pipeline, causing run-to-run variation.
+  
+  2. Mixed Integer/FP Workloads  
+     - Interleave integer arithmetic and floating-point operations in a single loop. Print the total time or operations done. Changing pipeline usage can expose subtle scheduling variability.
+  
+  3. Varying Instruction Mix  
+     - Recompile or toggle between different instruction mixes (e.g., mostly integer vs. mostly FP) within the same program. Print performance stats. Pipeline bottlenecks may appear more in one mix, leading to nondeterministic differences.
+  
+  4. Resource Starvation under Stress  
+     - Alternate short bursts of extremely compute-heavy instructions with minimal instructions. Print throughput in each burst. If out-of-order buffers or execution ports become saturated, small scheduling shifts can alter results.
+  
+  5. Progressive Load/Store Pressure  
+     - Gradually increase memory or load/store intensity in a loop. Print total iterations done. Surging load/store pipeline usage may reveal hidden resource contention differences across runs.
+- |
+  Instruction Fusion / Decoding Variations.
+  Some microarchitectures can “fuse” specific instruction pairs into a single micro-op, improving performance. Slight changes in code alignment, preceding instructions, or branch layout can cause these pairs to fuse or not fuse. This leads to potential run-to-run differences in instruction throughput.
+  Some of test propositions:
+  1. Fused Instruction Pair Tests  
+     - Execute a loop with sequences known to fuse on certain CPUs (e.g., compare+branch). Print how many iterations complete in a given time. If alignment changes cause partial fusion, run-to-run performance changes.
+  
+  2. Alignment Shifts  
+     - Insert small NOP sections to shift instruction alignment by a few bytes. Print a cycle count for a set of repeated operations. Fusion might fail in some alignments, causing noticeable timing differences.
+  
+  3. Variant Encodings  
+     - Generate multiple function variants with slightly different opcode encodings for the same logic. Print the runtime of each. Some encodings fuse better than others, leading to nondeterministic performance if the environment picks or aligns them differently.
+  
+  4. Branch-Linked Fusions  
+     - Test a function that ends with a conditional jump, then a short instruction that might fuse. Print iteration times. Branch predictor state plus code alignment can cause fusion to occur or fail unpredictably.
+  
+  5. Loop Unrolling Changes  
+     - Compare a loop that’s unrolled vs. one that’s not. Print performance. The unrolled version might expose more fusion opportunities—or break them—depending on alignment, creating potential nondeterminism.
+- |
+  Alignment and Padding Changes.
+  Code and data alignment can drastically change which cache lines or TLB entries are used, how instructions are decoded, or how memory is prefetched. Small padding differences (extra bytes of NOPs or structure padding) can shift everything enough to cause run-to-run timing variance.
+  Some of test propositions:
+  1. NOP Padding Injection  
+     - Insert random lengths of NOP instructions into a tight loop. Print total loop time. Different runs might have different instruction alignment and thus varied performance.
+  
+  2. Data Structure Padding  
+     - Define a struct with optional padding fields toggled on or off. Access struct fields in tight loops. Print iteration speed. Slight alignment changes can affect cache/TLB usage differently.
+  
+  3. Dynamic Memory Allocation Alignment  
+     - Allocate memory with different alignment constraints (if possible) and compare read/write speeds. Print results. Even small alignment shifts can yield inconsistent performance across runs.
+  
+  4. Multiple Versions of the Same Code  
+     - Compile or link the same source code with different alignment directives. Print each version’s runtime. Some might appear faster or slower due to alignment-based effects.
+  
+  5. Function Boundary Shifts  
+     - Add or remove unused functions so that a key function’s boundary shifts alignment. Print how long the key function takes to execute. Variation in alignment may induce nondeterminism in performance.
+- |
+  Microarchitectural Bugs / Errata.
+  Some CPU models have documented errata that can trigger under specific instruction patterns, leading to spurious stalls, aborted speculation, or partial pipeline flushes. These issues can manifest randomly if timing or alignment occasionally activates the bug’s trigger condition.
+  Some of test propositions:
+  1. Errata Trigger Stress  
+     - Run code sequences known to trigger certain documented CPU errata repeatedly. Print any detected anomalies (e.g., unexpected stalls, error codes) or timing outliers. Fluctuations indicate sporadic triggers.
+  
+  2. Instruction Sequence Variation  
+     - Slightly vary instruction ordering or add no-ops around known problematic sequences. Print measured performance. Some sequences might rarely trip an erratum, showing run-to-run differences.
+  
+  3. Repeated Boundary Conditions  
+     - If an erratum is known to occur near page boundaries or alignment boundaries, create test loops crossing those boundaries. Print performance or success rates. Variation in run scheduling might randomly hit or miss the boundary condition.
+  
+  4. Mixed Memory + Compute Patterns  
+     - Some errata involve store buffers or certain load/store interactions. Alternate memory-intensive steps with CPU-bound loops. Print final timings. If a known bug is triggered at random intervals, unpredictability emerges.
+  
+  5. Microcode Version Variation  
+     - If the test can detect or log microcode versions (sometimes exposed via /proc/cpuinfo or similar), print them alongside performance metrics. Slight differences across servers or microcode updates can alter erratum behavior, causing nondeterministic results.
+

@@ -1,0 +1,49 @@
+scope_name: 'Time__Clocks_System_Clock__Timestamps'
+prompt: 'Analyze potential non-deterministic behavior within the Time & Clocks - System Clock & Timestamps'
+subjects:
+- |
+  Wall-Clock Time.
+  Real-time functions (`time()`, `gettimeofday()`, `clock_gettime(CLOCK_REALTIME)`) can yield different values across runs due to:
+  - Host clock drift or manual resets.
+  - Potential NTP adjustments on the host.
+  - Any timezone or localtime configuration changes.
+  Some of test propositions:
+  - Idea 1: Repeatedly call `gettimeofday()` in a tight loop (e.g., 100 times) and print each timestamp. Compare outputs across multiple runs on different servers to check for unexpected offsets.  
+  - Idea 2: At container startup, immediately call `clock_gettime(CLOCK_REALTIME)` once, print it, and exit. Repeat multiple times across different hosts/servers. If the host clock is drifting or adjusting, you may see variations in the reported start times.  
+  - Idea 3: Use `strftime()` to convert the current time to a human-readable format. Capture that output multiple times within a single 5-second run. If any timezone or localtime configuration accidentally changes, the output could differ.  
+  - Idea 4: Run the container test back-to-back on the same server, printing the real-time clock each run. Compare differences in final output to see if any small drifts accumulate between runs (e.g., from NTP corrections).  
+  - Idea 5: In a single short run, capture `time()` at two points (start and end of a 3-second busy loop) and print the difference. Across many runs, if there are micro-adjustments on the host clock, you might see small variations.
+- |
+  Monotonic Clocks.
+  `CLOCK_MONOTONIC` should measure time since system start, but in virtualized environments it can differ if:
+  - The hypervisor or container boot offset is not consistent.
+  - There are paravirtual clock adjustments under the hood.
+  Some of test propositions:
+  - Idea 1: At container start, read `clock_gettime(CLOCK_MONOTONIC)` once, then again just before the program exits (within 5 seconds). Print both values and compare across multiple runs.  
+  - Idea 2: In a tight loop (for up to 5 seconds), repeatedly read `CLOCK_MONOTONIC` and print the microsecond deltas between consecutive reads. Check if deltas vary unusually across different runs/servers.  
+  - Idea 3: Split a short program into two phases (e.g., do a quick busy loop for 2 seconds, then do I/O for 2 seconds), measuring each phase duration via `CLOCK_MONOTONIC`. Compare durations across runs to see if they diverge unexpectedly.  
+  - Idea 4: Immediately upon start, log the monotonic clock, sleep 1 second, log it again. Compare the measured 1-second interval across runs. Large deviations might indicate scheduling or clock issues.  
+  - Idea 5: Read `CLOCK_MONOTONIC` in a simple loop combined with minimal I/O. If the underlying clock is truly stable, the increments should be consistent. Spot-check for any abrupt jumps that would indicate a hypervisor-induced clock shift.
+- |
+  NTP Adjustments / Clock Slewing.
+  NTP or similar services on the host can slew the clock by speeding it up or slowing it down slightly. This can cause:
+  - Minor differences in real-time measurements across repeated container starts.
+  - Sudden small jumps if the host clock is corrected quickly.
+  Some of test propositions:
+  - Idea 1: Run a 5-second program that prints the real-time clock every second (`time()` or `clock_gettime(CLOCK_REALTIME)`). Across multiple invocations, check if each second truly increments by ~1s or if variations (like 0.999s or 1.001s intervals) appear.  
+  - Idea 2: Capture `time()` at the start and end of a 3-second busy loop. Do this across many consecutive runs. If the host applies frequent slewing, you might see slight differences in reported durations.  
+  - Idea 3: Launch the container quickly several times in a row on the same server, each time printing the current real-time second. If NTP is adjusting, you may see an unexpected offset growing or shrinking across runs.  
+  - Idea 4: If the host is under significant CPU load (outside the container), re-run the same short test. Compare real-time intervals to see if load triggers more frequent or abrupt slewing adjustments.  
+  - Idea 5: Print the difference between `gettimeofday()` and a monotonic source (`clock_gettime(CLOCK_MONOTONIC)`) at container start. If the host is slewing, that offset could change across multiple restarts.
+- |
+  System Boot Time / Clock Initialization.
+  The reference “boot time” for the container or VM can vary if:
+  - The hypervisor sets the clock baseline differently on each start.
+  - There is variability in how long the container takes to initialize before you can measure time.
+  Some of test propositions:
+  - Idea 1: Immediately upon container start, read and print `/proc/uptime`. Compare the reported uptime across many runs. If it’s not truly synchronized, there may be unexpected offsets.  
+  - Idea 2: Right after start, read `CLOCK_MONOTONIC` or `time()` once, then do a short 2-second busy loop, read again, and exit. Compare those pairs across multiple runs to see if the initial baseline differs.  
+  - Idea 3: Print any available kernel log timestamps (`dmesg` might be minimal but can have initial logs). If the “start” offset changes unpredictably, you might see unexpected initial timestamps.  
+  - Idea 4: Compare the container’s reported “seconds since boot” (e.g., from `/proc/uptime`) with `gettimeofday()` to see if the offset is consistent across repeated container starts.  
+  - Idea 5: Do a quick sequence of container launches in rapid succession, each printing both `/proc/uptime` and `CLOCK_MONOTONIC` upon start. If the baseline is drifting, you’ll see differences in these initial readings.
+

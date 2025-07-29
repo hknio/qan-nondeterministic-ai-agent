@@ -1,0 +1,32 @@
+scope_name: 'Containerization__Virtualization_Hypervisor_Scheduling'
+prompt: 'Analyze potential non-deterministic behavior within the Containerization & Virtualization - Hypervisor Scheduling'
+subjects:
+- |
+  Host-Level Preemption.
+  The hypervisor can preempt an entire VM if other guests or host processes need CPU time. These pauses or scheduling intervals can shift concurrency timing inside the container, causing unpredictable variations in execution order or timing.
+  Some of test propositions:
+  - High-Precision Timer Check  
+    Continuously measures time via `clock_gettime()` in a loop, printing deltas. Large unexpected jumps or stalls point to host-level VM preemption.
+  - Concurrent I/O and CPU  
+    One thread runs CPU-bound tasks, another does I/O. Both print progress. If the VM is preempted at inconsistent times, the ratio of CPU to I/O progress changes.
+  - Load Patterns Under Host Stress  
+    Executes a fixed workload on an otherwise busy host vs. an idle host. Prints throughput or iteration counts. Significant differences suggest host-level scheduling variance.
+  - Periodic Timer  
+    Uses a timer (e.g., `timerfd_create`) to wake every X ms, printing the actual wake time. Irregular delays or missed ticks indicate hypervisor preemption.
+  - Multi-VM Race  
+    If multiple containers/VMs run tests simultaneously, each logs how many operations they complete. Differing resource distribution or preemption across runs reveals host scheduling nondeterminism.
+- |
+  Snapshot/Restore.
+  If the environment supports snapshot/restore or live migration, the VM’s internal clock and state can shift when restored. Cached data, open file states, or partially completed I/O might be in different states than before, causing output variation.
+  Some of test propositions:
+  - Clock Skew Detector  
+    Measures monotonic clock pre- and post-restore, printing any jump. If snapshots freeze time differently, repeated tests can yield different clock offsets.
+  - Cached Data Check  
+    Loads data into memory, triggers a snapshot, and measures read speed post-restore. Variation in how quickly data is accessed across restores suggests differences in memory cache states.
+  - Open Files & In-Flight Operations  
+    Maintains files open with partial writes, then snapshots. After restore, prints final file content. Differences in final sizes or incomplete writes reflect variability in snapshot timing.
+  - Network Socket State  
+    Opens local sockets (loopback) and checks their status after restore. Sometimes sockets may be reset or remain open. Printed results vary if the snapshot captures different internal states.
+  - Concurrent Restore Race  
+    If multiple containers are snapshotted and restored together, each logs the timestamp when it resumes. Variation in which container finishes restoring first indicates nondeterministic restore ordering.
+

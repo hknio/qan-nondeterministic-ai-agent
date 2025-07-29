@@ -1,0 +1,32 @@
+scope_name: 'Memory_Layout__Access_Memory_Allocation_Patterns'
+prompt: 'Analyze potential non-deterministic behavior within the Memory Layout & Access - Memory Allocation Patterns'
+subjects:
+- |
+  Heap Fragmentation.
+  Different sequences of `malloc` and `free` calls produce varying layouts of the heap. Fragmentation can change memory reuse patterns, leading to nondeterministic addresses or performance.
+  Some of test propositions:
+  - Repeated Allocation/Deallocation Patterns  
+    Continuously allocate and free blocks, then print addresses. Differences indicate fragmentation changes between runs.
+  - Varying the Size Sequence  
+    Randomize allocation sizes in each run and log final addresses to see if block placement differs.
+  - Large vs. Small Objects  
+    Alternate huge allocations with many small ones. Observe and print the addresses of small allocations to reveal shifting fragmentation.
+  - Measure `sbrk()` Changes  
+    Periodically call `sbrk(0)` and print the heap end. If it moves differently between runs, fragmentation patterns differ.
+  - Allocator Stats  
+    Use introspective functions (like `mallinfo()` if available) to print fragmentation metrics after a known set of allocations. Variations confirm nondeterminism.
+- |
+  Allocator Concurrency.
+  When multiple threads simultaneously allocate and free memory, the allocator’s internal state can differ based on scheduling, causing non-repeatable outcomes in address assignment or timing.
+  Some of test propositions:
+  - Multi-Threaded Allocation Loop  
+    Spawn threads each performing random `malloc`/`free`. Print final allocated block addresses; random scheduling leads to different patterns.
+  - Lock Contention  
+    Introduce artificial delays (`sleep` or `yield`) in different threads between allocations. Log the allocation order to see concurrency races.
+  - High-Throughput Parallel Test  
+    Run intense allocation/free loops in multiple threads. Compare final logs for run-to-run differences in block usage.
+  - Thread Start/Stop  
+    Dynamically create threads at random intervals that each do allocations. If the sequence of printed addresses varies, concurrency is a factor.
+  - Allocator Replacement  
+    Switch between different allocator libraries (if supported) or configurations, then run the same concurrent test. If outputs differ unpredictably, concurrency triggers nondeterminism.
+

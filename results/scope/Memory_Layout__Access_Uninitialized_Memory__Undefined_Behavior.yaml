@@ -1,0 +1,32 @@
+scope_name: 'Memory_Layout__Access_Uninitialized_Memory__Undefined_Behavior'
+prompt: 'Analyze potential non-deterministic behavior within the Memory Layout & Access - Uninitialized Memory & Undefined Behavior'
+subjects:
+- |
+  Uninitialized Variables.
+  Reading uninitialized variables can return leftover bits from prior stack or heap usage. Different runs or different memory states can lead to inconsistent values, producing nondeterministic outputs.
+  Some of test propositions:
+  - Uninitialized Stack Usage  
+    Declare a large local array without initializing it and print its contents. Different bits across runs indicate nondeterminism.
+  - Partially Initialized Struct  
+    Allocate a struct but only initialize some fields; print all fields. Uninitialized fields can vary in value between runs.
+  - Compiler Optimization Variation  
+    Compile a test program at different optimization levels (`-O2`, `-O3`) that reads an uninitialized variable; watch for unpredictable outputs.
+  - Multiple Consecutive Runs  
+    Execute the same binary repeatedly in a loop and compare outputs. If uninitialized values differ, nondeterminism is present.
+  - Compare with Zeroed Memory  
+    Run one version that explicitly zeroes memory and another that leaves it uninitialized. If only the uninitialized version shows random results, that confirms the source of nondeterminism.
+- |
+  Use-After-Free / Dangling Pointers.
+  Once memory is freed, the same region can be reallocated for different purposes. A dangling pointer referencing freed memory can see unpredictable data if that memory block is reused differently across runs.
+  Some of test propositions:
+  - Allocate/Free/Reallocate  
+    Rapidly allocate a buffer, free it, then allocate a new buffer and print its content. Stale data indicates use-after-free.
+  - Simulate Different Execution Paths  
+    Use random branches or user input to vary the order of allocations/frees. If reading from freed memory yields different results, that’s nondeterminism.
+  - Stress Test with Threads  
+    Even on a single CPU, multiple threads doing concurrent `malloc`/`free` may show different reuse patterns for freed memory.
+  - Access Freed Local Variables  
+    Return a pointer to a local variable from a function (incorrect usage). Compare its contents across runs to see if it changes unpredictably.
+  - Library Hooks  
+    Override `malloc`/`free` to detect or log accesses to freed blocks. If the program prints “detected invalid access” inconsistently, it indicates nondeterministic use-after-free behavior.
+

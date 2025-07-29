@@ -1,0 +1,80 @@
+scope_name: 'System_Calls__Kernel_Interactions_EINTR___EAGAIN'
+prompt: 'Analyze potential non-deterministic behavior within the System Calls & Kernel Interactions - EINTR / EAGAIN'
+subjects:
+- |
+  Signal Handling Races.
+  Signals can arrive at slightly different moments, interrupting syscalls and forcing restarts. Even if signals are minimal in the environment, timers or watchdogs can trigger them unpredictably, leading to different points of interruption.
+  Some of test propositions:
+  1. Periodic Alarm  
+     - Use a timer (`alarm(1)` or similar) that interrupts a long-running syscall.  
+     - Print how many times the syscall was actually interrupted.
+  2. High-Frequency Signals  
+     - Rapidly send signals (if possible in the container) to the same process during I/O operations.  
+     - Log how many times an `EINTR` occurred.
+  3. Syscall Retry Loops  
+     - Perform many blocking reads on a pipe or socket while sending signals from another process.  
+     - Print the total read attempts vs. successful completions.
+  4. Signal Chaining  
+     - Set up multiple signal handlers that chain quickly, forcing multiple interruptions in short succession.  
+     - Output how many interruptions occurred per run.
+  5. Timer-based Sleep Interrupt  
+     - Repeatedly call `sleep()` or `nanosleep()` while a timer fires signals.  
+     - Print how many times the sleep was cut short (`EINTR`).
+- |
+  Non-blocking I/O & EAGAIN.
+  When file descriptors are in non-blocking mode, the kernel can return `EAGAIN` based on buffer availability. Small timing changes (buffer draining, scheduling) can lead to unpredictable success/failure patterns.
+  Some of test propositions:
+  1. Non-blocking Socket Writes  
+     - Open a Unix domain socket in non-blocking mode. Rapidly write large chunks of data.  
+     - Print how often `EAGAIN` is returned.
+  2. Simultaneous Writers  
+     - Two processes write to the same non-blocking pipe or socket.  
+     - Record the sequence of `EAGAIN` or partial writes.
+  3. Micro-sleeps Between Writes  
+     - Insert tiny sleeps (e.g., `usleep(50)`) between writes to see if partial buffer flush changes the outcome.  
+     - Compare partial vs. full writes counts across runs.
+  4. Non-blocking Read with Random Data  
+     - Fill a buffer from an external (or piped) data source in non-blocking mode, reading until `EAGAIN`, then retry.  
+     - Print total read bytes per attempt.
+  5. Stress with Memory Pressure  
+     - Combine non-blocking writes with large memory allocations.  
+     - Output how often writes fail due to `EAGAIN` in high-load situations.
+- |
+  Internal Kernel Timeouts.
+  Some syscalls have built-in timeouts or rely on kernel time-based logic. If the kernel is busy or scheduling is delayed, a timeout might expire differently from run to run, causing partial results or different return codes.
+  Some of test propositions:
+  1. Bounded Blocking Syscalls  
+     - Use syscalls with timeouts (e.g., `select()`, `poll()`) specifying a short timeout.  
+     - Print how often they time out vs. how often they return data.
+  2. Repeated Timed Lock Acquisition  
+     - If available, try `pthread_mutex_timedlock()` with a tight timeout.  
+     - Count how many locks fail to be acquired across multiple runs.
+  3. Short vs. Long Timeout Comparison  
+     - Alternate between 1ms and 100ms poll/select timeouts.  
+     - Compare the ratio of timeouts vs. successful readiness checks.
+  4. Load-Induced Timeout Variation  
+     - Launch a secondary process that consumes CPU or memory while the primary runs timed syscalls.  
+     - Print the difference in how often timeouts occur under load vs. no load.
+  5. Timeout Edge  
+     - Use the exact boundary condition (like a 5-second limit close to the contract limit) to see if the syscall completes or times out.  
+     - Log which runs succeed or fail near that edge.
+- |
+  Delayed Retry Logic.
+  When a syscall is interrupted (`EINTR`) or returns `EAGAIN`, many libraries/applications implement retry loops. The point in time when the retry happens can differ, leading to partial data or repeated re-entrancy.
+  Some of test propositions:
+  1. Manual EINTR Injection  
+     - Force signals that cause syscalls to fail with `EINTR`, then have the code automatically retry.  
+     - Print how many total retries occurred before success.
+  2. Random Delay Before Retry  
+     - Inject a random micro-sleep after each `EAGAIN` or `EINTR`.  
+     - Compare the final data ordering or success counts across runs.
+  3. Buffered Writes with Retry  
+     - Write data in chunks that intentionally exceed the pipe/socket buffer, triggering partial writes and retries.  
+     - Log partial vs. final write completions.
+  4. Adaptive Retry Backoff  
+     - Increase the wait time after each `EAGAIN`.  
+     - Output how many attempts were needed before the call succeeded.
+  5. Simultaneous Retry Tests  
+     - Multiple threads each performing read/write with the same retry logic.  
+     - Print the number of collisions or how many times each thread got stuck in retry loops.
+

@@ -1,0 +1,80 @@
+scope_name: 'System_Calls__Kernel_Interactions_Implementation-Defined_Edge_Cases'
+prompt: 'Analyze potential non-deterministic behavior within the System Calls & Kernel Interactions - Implementation-Defined Edge Cases'
+subjects:
+- |
+  Different Kernel Builds.
+  Minor version or patch differences in the kernel can alter syscall implementations or timing. Even if the environment is “Alpine 5.10,” slight patch variations or security updates can produce different results.
+  Some of test propositions:
+  1. Syscall Behavior Check  
+     - Repeatedly perform corner-case syscalls (e.g., zero-length read, or `ftruncate` to unusual sizes).  
+     - Print return codes to see if they change unexpectedly across environments.
+  2. Compare Local vs. Remote  
+     - Run identical tests on two servers (with the “same” kernel version) to see if patch differences yield different outputs.  
+     - Print a summary of any discrepancies.
+  3. Check Build IDs  
+     - Read `/proc/version` or kernel build info.  
+     - If it differs, run a known corner-case test (like oversize `mmap`) and compare the results.
+  4. Security Patch Differences  
+     - Attempt operations near permission boundaries (like `chmod` or `chown` if allowed).  
+     - Log any unexpected behavior or errors that might indicate a patch difference.
+  5. Microbenchmark of Syscalls  
+     - Precisely measure time for a tight loop of syscalls (like `stat`, `open`, `close`).  
+     - Output if there’s a consistent difference in performance or success rates on different servers.
+- |
+  Security Hardening & Patches.
+  Modules like SELinux, AppArmor, or other security patches can insert checks or overhead that vary depending on the internal policy state. This overhead might appear unpredictably or differ across runs.
+  Some of test propositions:
+  1. Permission Boundary Tests  
+     - Attempt operations requiring borderline permissions (e.g., reading protected files).  
+     - Print how many times the operation is allowed vs. denied.
+  2. LSM Overhead Measurement  
+     - Repeatedly open/close the same file, measuring minimal overhead.  
+     - Compare if runs occasionally spike in time or trigger `EACCES` unexpectedly.
+  3. Random Policy Reload  
+     - If feasible, reload or toggle security profiles during the test.  
+     - Observe if that changes syscall outcomes in real time.
+  4. Profile Checking  
+     - Query the current security profile’s mode (enforcing/permissive).  
+     - Print if the test environment unexpectedly changes this setting mid-run.
+  5. Audit Logging Overheads  
+     - If an audit system is present, generate enough events to fill audit logs.  
+     - Compare performance or syscall results when the audit subsystem is busy vs. idle.
+- |
+  Filesystem / Device-Specific Behaviors.
+  Different filesystems (or the overlay used in containers) can handle caching, flushing, or alignment differently. Device drivers might also have unique timing or data consistency characteristics.
+  Some of test propositions:
+  1. Overlay/Union FS Check  
+     - Create and write files rapidly in a known overlay.  
+     - Print the time or success rate of file operations to see if union layering causes partial writes.
+  2. Device-Specific Tests  
+     - If a certain block or character device is accessible, perform repeated read/write with unusual offsets (e.g., unaligned).  
+     - Print partial or misaligned read results.
+  3. Filesystem Sync vs. Async  
+     - Use `fsync` or `fdatasync` after each write to see if the flush timing changes the data read in subsequent runs.  
+     - Compare how quickly writes become visible.
+  4. Concurrent Filesystem Operations  
+     - Two processes each rename files or create directories in quick succession.  
+     - Print the final directory listing or ordering.
+  5. Stress Special Files  
+     - If special files exist (like `/proc`, `/sys`, or `tmpfs`), run edge-case reads (zero-length, partial).  
+     - Log any inconsistent error codes or partial data.
+- |
+  Hidden Kernel Bug Fixes.
+  Sometimes, minor bug fixes or regressions in the kernel appear only under rare conditions (e.g., boundary input sizes). Different servers or patch levels might exhibit sporadic changes in behavior.
+  Some of test propositions:
+  1. Boundary Stress  
+     - Repeatedly pass boundary values to syscalls (like `mmap` with sizes near 0 or 1024MB).  
+     - Print any unexpected error codes or partial success.
+  2. Large Argument Lists  
+     - Execute a test that passes large argument arrays or environment variables to `execve`.  
+     - Output whether the kernel rejects or truncates them differently across runs.
+  3. Unusual Flags  
+     - Combine lesser-used syscall flags (`O_DIRECT`, `O_TMPFILE`, etc.) and see if behavior differs.  
+     - Print the exact return codes each run.
+  4. High Load with Edge Cases  
+     - Under memory or file handle pressure, repeatedly call borderline syscalls (like `fadvise64`).  
+     - Log any kernel panics, lockups, or unexpected results (if any).
+  5. Comparative Testing  
+     - Run the same suite on multiple servers known to have slightly different patch sets.  
+     - Print a summary of all divergences in final outputs or error codes.
+

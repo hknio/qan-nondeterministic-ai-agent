@@ -1,0 +1,99 @@
+scope_name: 'System_Calls__Kernel_Interactions_Kernel_Background_Jobs'
+prompt: 'Analyze potential non-deterministic behavior within the System Calls & Kernel Interactions - Kernel Background Jobs'
+subjects:
+- |
+  Memory Reclamation Scheduling.
+  `kswapd` and `kcompactd` wake up under varying conditions (e.g., memory pressure) to reclaim or compact memory. The exact timing can cause minor differences in how allocations or I/O calls behave.
+  Some of test propositions:
+  1. Near-Limit Allocation Loop  
+     - Continuously allocate memory to approach 1024MB, then free chunks.  
+     - Print any slowdown or allocation failures that occur sporadically.
+  2. Repeated `malloc` / `free`  
+     - Rapidly allocate/free objects in different sizes to trigger compaction.  
+     - Compare how many allocations succeed quickly vs. those that take longer.
+  3. High I/O with Memory Pressure  
+     - Perform large file writes or reads while also allocating memory.  
+     - Output how often I/O slows or partial writes occur when memory reclaim triggers.
+  4. Monitoring `/proc/meminfo`  
+     - In a loop, read `/proc/meminfo` to see if reclaim activity (e.g., `Active(file)`) spikes.  
+     - Log any correlation with slower or failed allocations.
+  5. Variable Sleep  
+     - Insert random sleeps in between bursts of allocation so the kernel might reclaim differently each run.  
+     - Compare memory usage patterns across runs.
+- |
+  RCU Grace Period Enforcement.
+  RCU threads periodically check if a grace period ended to free or update data. This timing may shift slightly each run, affecting visibility of kernel data or freeing time.
+  Some of test propositions:
+  1. RCU Update & Read  
+     - Continuously create data structures that rely on RCU (like ephemeral sockets or inodes), then read them.  
+     - Print if old data lingers in any read unexpectedly.
+  2. Forced Quiescent States  
+     - Trigger context switches or sleeps to provoke grace period completions.  
+     - Compare how quickly the kernel finalizes RCU callbacks across runs.
+  3. Frequent Small Updates  
+     - Make repeated minimal changes to a kernel structure (like opening/closing a single file).  
+     - Output if read operations reflect intermediate states at different times.
+  4. RCU Callback Counters  
+     - If debugging is possible, read kernel counters for RCU callbacks (in `/proc` if exposed).  
+     - Track how many callbacks have fired at identical points in repeated runs.
+  5. Stress with Additional Load  
+     - Run a CPU-bound or I/O-bound process to see if it delays RCU callback execution.  
+     - Print the difference in callback timing or updated data detection.
+- |
+  Writeback Daemons.
+  Background daemons flush dirty pages to disk at intervals. Whether data is still in cache or forcibly written can affect read times or partial results for subsequent reads.
+  Some of test propositions:
+  1. Dirty Page Flood  
+     - Write large amounts of data to a file repeatedly.  
+     - Print how many write operations are still “dirty” after 5 seconds.
+  2. Flush Timing Check  
+     - Use `fsync` in a tight loop after each write.  
+     - Compare runs to see if the writeback daemon triggers differently, impacting performance.
+  3. Observe `/proc/vmstat`  
+     - Continuously read `nr_dirty` or `nr_writeback` counters.  
+     - Print changes to see if they spike or subside at random intervals across runs.
+  4. Small vs. Large Writes  
+     - Alternate tiny writes with big (e.g., 50MB) writes, forcing the daemon to handle them differently.  
+     - Output the time from write completion to actual flush (if trackable).
+  5. Interleaved Read/Write  
+     - In parallel, read from the same file while writing to it.  
+     - Print if read sees partial or inconsistent data under different flush timings.
+- |
+  Scheduler Maintenance.
+  The kernel runs housekeeping tasks such as load balancing (even if minimal on a single CPU), cgroup management, or frequency scaling (if enabled), which can occur at slightly different times and cause small scheduling shifts.
+  Some of test propositions:
+  1. Periodic Load Checking  
+     - Continuously read `/proc/loadavg` while running a CPU-bound task.  
+     - Print any unexpected peaks or troughs in load that differ run-to-run.
+  2. Cgroup Manipulations  
+     - If allowed, create/destroy cgroups or move the process among them.  
+     - Log how that changes CPU scheduling metrics (like `schedstat`).
+  3. CPU Frequency Scaling  
+     - If enabled, stress the CPU, then idle, then stress again; measure the time to ramp up or down.  
+     - Print differences in performance or measured speed.
+  4. Intermittent CPU-bound & I/O-bound  
+     - Alternate a loop of CPU usage with bursts of disk I/O.  
+     - Print iteration counts or throughput to see if the scheduler changes priorities unpredictably.
+  5. Scheduler Tick Variation  
+     - Force many context switches with short sleeps in a loop.  
+     - Print how many times a second the scheduler tick increments or yields.
+- |
+  Entropy Gathering / RNG.
+  Even if the environment claims a fixed initial state, the kernel might still gather entropy from hardware or internal events, causing `/dev/urandom` or other RNG sources to produce different outputs.
+  Some of test propositions:
+  1. Small Reads from `/dev/urandom`  
+     - Immediately after container start, read a few bytes from `/dev/urandom` and print them in hex.  
+     - Compare across runs to see if they differ.
+  2. Repeated Reads  
+     - Perform many repeated short reads from `/dev/urandom`.  
+     - Log any changes in the sequence across runs.
+  3. Stress + RNG  
+     - While running CPU/memory stress, read random data.  
+     - Print if the generated data differs from a baseline (if truly fixed, it should not).
+  4. Check Entropy Counters  
+     - If accessible, read `/proc/sys/kernel/random/entropy_avail` in a loop.  
+     - Record how quickly it rises/falls in repeated runs.
+  5. Compare Before/After Certain Operations  
+     - Read random data, then do I/O or memory tasks, then read again.  
+     - Print differences to see if these tasks somehow replenish the entropy pool differently.
+

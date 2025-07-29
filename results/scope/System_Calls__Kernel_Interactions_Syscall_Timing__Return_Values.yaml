@@ -1,0 +1,99 @@
+scope_name: 'System_Calls__Kernel_Interactions_Syscall_Timing__Return_Values'
+prompt: 'Analyze potential non-deterministic behavior within the System Calls & Kernel Interactions - Syscall Timing & Return Values'
+subjects:
+- |
+  CPU Scheduling Quirks.
+  Even with a single vCPU, the kernel can schedule tasks and internal threads (interrupt handlers, kernel daemons) slightly differently. This leads to variations in when syscalls actually execute or complete, causing non-deterministic timing and results.
+  Some of test propositions:
+  1. Rapid Syscall Stress  
+     - Perform repeated simple syscalls (e.g., `getpid()`, `open()`) in a tight loop.  
+     - Print timing statistics or counts of completed calls within 5 seconds.
+  2. Mixed Workload Stress  
+     - Simultaneously run a high-memory or I/O-intensive process to force the kernel scheduler to juggle tasks.  
+     - Measure how many syscalls complete in a fixed window; print the total.
+  3. Short-Lived Thread Spawning  
+     - Rapidly create/join threads or processes (up to the environment’s limit) to see if kernel scheduling differences cause different completion orders.  
+     - Output the actual order or timing of thread completions.
+  4. Periodic Sleep & Wake  
+     - Alternate short sleeps (e.g., `usleep(1000)`) with bursts of CPU-bound work to force the scheduler to switch contexts.  
+     - Compare iteration counts or timestamps across runs.
+  5. Signal Interruption  
+     - If signals are available, set a periodic timer signal that interrupts syscalls randomly.  
+     - Log which calls got interrupted, how many times, and final results.
+- |
+  Caching Effects.
+  Kernel-level caching (page cache, disk buffer cache, etc.) may be warmed or flushed at different times across runs. This can cause variable syscall performance or partial reads/writes, leading to different outcomes and timings.
+  Some of test propositions:
+  1. File Read Loop  
+     - Repeatedly read a moderately sized file (e.g., 1MB) from a tmpfs or disk.  
+     - Print how long each read loop takes; compare run-to-run variability.
+  2. Cache Flush & Reload  
+     - Use `sync` or read a large dummy file to flush smaller caches, then measure the timing of subsequent syscalls (like `open()`, `stat()`).  
+     - Output the difference in times.
+  3. Random Access Reads  
+     - Seek to random offsets in a file, read small blocks, and measure performance or number of successful reads within 5 seconds.  
+     - Print min/max read times or offsets.
+  4. Cache Thrash  
+     - Allocate enough memory to exceed typical page caches (close to 1024MB limit), forcing the kernel to evict pages.  
+     - Print the iteration at which performance degrades or syscalls slow down.
+  5. Cache vs. Non-Cache Comparison  
+     - Perform the same read operation twice in a row, measuring the first (cold cache) and second (warm cache) latencies.  
+     - Output both times to detect differences across runs.
+- |
+  Concurrent Kernel Activities.
+  While user space is single-threaded (one vCPU), the kernel still has internal concurrency (I/O threads, interrupt contexts). This concurrency can shift the order or timing of events like device I/O or lock acquisitions.
+  Some of test propositions:
+  1. Simultaneous Read/Write to Pseudodevice  
+     - If allowed, open `/dev/zero` or `/dev/null` in separate processes and perform large reads/writes concurrently.  
+     - Track how many blocks are processed and how quickly.
+  2. Busy Loop + Syscall Loop  
+     - In one process, run a busy CPU loop; in another, run repeated syscalls.  
+     - Print differences in syscall completion time.
+  3. Kernel Lock Contention  
+     - Open many file descriptors at once (within the limit), then close them in parallel.  
+     - Record any partial or delayed closures, printing final counts.
+  4. Interrupt-Driven Device Access  
+     - If a pseudo-TTY or minimal device is available, use asynchronous reads/writes to see if interrupt handling order changes the read results.  
+     - Output the actual read data or the times of completion.
+  5. Syscall Interleaving Monitor  
+     - Two processes each log a timestamp to the same file (or pipe) every millisecond.  
+     - Compare the resulting interleaved log across multiple runs.
+- |
+  Resource Availability.
+  Kernel resources (file handles, memory pages) may be in different states run-to-run. If the kernel is momentarily low on a resource or has to reclaim it, syscalls can behave differently (delays, partial successes, or different error codes).
+  Some of test propositions:
+  1. FD Exhaustion Test  
+     - Attempt to open as many files or sockets as possible, recording the first moment an `EMFILE` or similar error appears.  
+     - Compare that threshold across runs.
+  2. Memory Allocation Race  
+     - Allocate large chunks of memory rapidly, then free them.  
+     - Print the allocation success rate or the time it takes to fail or succeed.
+  3. Simultaneous Resource Requests  
+     - Fork or create multiple child processes each attempting resource grabs (files, memory).  
+     - Observe differences in which child gets resources first.
+  4. Throttled I/O  
+     - If using a block device, perform multiple reads/writes while near the limit of open handles.  
+     - Print any unusual `EAGAIN` or partial read/write counts.
+  5. Locked Resource  
+     - Use advisory file locks in multiple processes to see if lock acquisition order changes.  
+     - Log the order of acquisitions and release times.
+- |
+  Data Alignment & Buffer Boundaries.
+  Subtle differences in how buffers align on page boundaries can change performance or cause partial operations. Minor changes in memory layout can appear if the kernel chooses different addresses, leading to timing or result variations.
+  Some of test propositions:
+  1. Aligned vs. Unaligned Buffers  
+     - Repeatedly read/write data using a buffer aligned to page boundaries, then use a buffer off by a few bytes.  
+     - Compare throughput or error codes.
+  2. Multiple Page Boundaries  
+     - Write data that spans multiple pages (e.g., 4096 + 100 bytes), and track how many separate chunks the kernel processes.  
+     - Print any partial write counts.
+  3. Randomized Buffer Offsets  
+     - Dynamically allocate buffers at random offsets, performing the same read/write operations.  
+     - Compare performance or the counts of partial operations.
+  4. Small vs. Large Transfers  
+     - Alternate 4KB writes with 1MB writes to the same file or pipe.  
+     - Output how many full writes succeed in 5 seconds for each approach.
+  5. Boundary Stress With Syscalls  
+     - Use `readv` or `writev` with multiple small iovecs that total just over a page boundary.  
+     - Print any differences in how many iovecs get processed per syscall.
+

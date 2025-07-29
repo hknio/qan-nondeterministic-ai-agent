@@ -1,0 +1,46 @@
+scope_name: 'Concurrency__Scheduling_Multi-Threading__Data_Races'
+prompt: 'Analyze potential non-deterministic behavior within the Concurrency & Scheduling - Multi-Threading & Data Races'
+subjects:
+- |
+  Thread Creation & Scheduling.
+  Even on a single vCPU, the kernel or language runtime can schedule threads at slightly different times. Factors include library initialization sequence, differences in preemption points, thread priorities, and subtle timing during startup (e.g., static constructors in C++ or Rust). These variations can cause different thread interleavings and therefore produce different outcomes.
+  Some of test propositions:
+  - Repeated Thread Spawner  
+    A program spawns N threads that each increment a shared counter in a loop; the main thread prints the final counter. Differences in the final count across runs highlight scheduling variation.  
+  - Interleaved Print Statements  
+    Multiple threads each print a labeled integer sequence. The main thread collects the sequence; if the order changes across runs, scheduling is non-deterministic.  
+  - Thread Start Delay  
+    Threads spin on a “start signal” variable. The main thread randomly sets this signal. Each thread prints which one started first. Order shifts expose scheduling differences.  
+  - Yield and Sleep Mix  
+    Threads alternate `sched_yield()` or small `sleep()` calls. They log each iteration. Variation in the log order across runs reveals different preemption points.  
+  - Long-Running vs. Short-Running Threads  
+    One thread does CPU-bound work, another does frequent I/O-bound tasks. Each logs timestamps per iteration. Variation in how often each thread runs first shows differences in scheduling interleavings.
+- |
+  Lock Contention & Acquisition Order.
+  When multiple threads compete for the same locks, minor timing differences can change the order of lock acquisition. Adaptive spinning, back-off strategies, or multiple-lock scenarios can amplify these variations. This leads to unpredictable access patterns and sometimes inconsistent results.
+  Some of test propositions:
+  - Dual-Lock Race  
+    Two threads rapidly attempt to acquire `mutexA` then `mutexB`. Each prints the order in which locks are acquired. Variation in lock acquisition order across runs indicates non-determinism.  
+  - Contention Storm  
+    A program spawns many threads contending for one mutex in tight loops. Each thread prints when it acquires the lock. Any differences in the “Thread X got lock” sequence suggest scheduling changes.  
+  - Adaptive Spin Lock Observed  
+    Use a locking library (e.g., pthread with spin-then-block). Log the time from lock attempt to lock acquisition. Compare across runs to see if spinning durations differ.  
+  - Nested Lock Checking  
+    Threads each hold one lock, then try to acquire another. They log every time they must wait for the second lock. Run-to-run variations in wait patterns reveal lock ordering differences.  
+  - Lock-Heavy vs. Lock-Light Threads  
+    One thread rapidly acquires/releases the mutex, another holds it longer each time. Track which thread acquires it more often. Shifts in these counts across runs indicate non-deterministic scheduling.
+- |
+  Race Conditions & Undefined Behavior.
+  Race conditions arise when multiple threads read and write shared data without proper synchronization. Subtle differences in timing can lead to inconsistent reads, corrupted data, or undefined behavior. Compiler or JIT optimizations, as well as memory ordering, can exacerbate these unpredictable outcomes.
+  Some of test propositions:
+  - Increment vs. Decrement Race  
+    Two threads manipulate a shared integer without synchronization (one increments, the other decrements). The main thread prints the final value. Inconsistent results indicate a data race.  
+  - Pointer Swap Race  
+    Two threads concurrently change a shared pointer or index in an array without locks. The final pointer/array contents are printed. Variation across runs exposes unsynchronized writes.  
+  - Atomic vs. Non-Atomic Comparison  
+    One thread updates a variable atomically, another reads it non-atomically. Log the read values. Unexpected or out-of-order values show race conditions.  
+  - Memory Order Variation  
+    A program toggles different memory ordering modes (if supported) to see if the final results remain consistent. Run-to-run differences may reveal hidden data races.  
+  - Random Delay Injection  
+    Insert random micro-sleeps between reads/writes in each thread. Print final data structure states. Changing interleavings across runs exposes race conditions more frequently.
+

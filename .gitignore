@@ -1,0 +1,4 @@
+.aider*
+.env
+__pycache__
+results/revalidation_results/*

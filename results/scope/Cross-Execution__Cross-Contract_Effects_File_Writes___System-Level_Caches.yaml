@@ -1,0 +1,141 @@
+scope_name: 'Cross-Execution__Cross-Contract_Effects_File_Writes___System-Level_Caches'
+prompt: 'Analyze potential non-deterministic behavior within the Cross-Execution & Cross-Contract Effects - File Writes / System-Level Caches'
+subjects:
+- |
+  Non-deterministic item: Ephemeral Storage Not Properly Wiped.
+  If `/tmp` or other ephemeral directories are not fully cleared, subsequent runs may find leftover files or data, causing inconsistent program behavior.
+  Some of test propositions:
+  1. Hidden File Marker  
+     - Write a hidden file (`/tmp/.marker_<random>`) and store random data.  
+     - On next run, look for the file or data.  
+     - If found, ephemeral storage was not wiped.
+  
+  2. Directory Listing Check  
+     - Create a unique subdirectory in `/tmp`, fill it with small files, exit.  
+     - Next run lists `/tmp`.  
+     - If the subdirectory remains, ephemeral storage persists.
+  
+  3. Large File Test  
+     - Write a large file (e.g., 50 MB) to `/tmp` and exit.  
+     - Next run checks if there’s leftover partial data.  
+     - Any presence indicates incomplete wipe.
+  
+  4. File Timestamp Check  
+     - Write a file with a unique creation timestamp in ephemeral storage.  
+     - On subsequent run, read its timestamp.  
+     - If it exists, ephemeral storage is carrying over.
+  
+  5. In-Memory Filesystem Variation  
+     - If `/tmp` is an in-memory filesystem, fill it near capacity, then exit.  
+     - A new run tries to see if space is still occupied.  
+     - Occupancy indicates leftover data.
+- |
+  Non-deterministic item: System-Level Caches (DNS, Page Cache, Filesystem Journals).
+  Host or container-level caches (DNS lookups, page caching, journaling) might produce different responses if not reset each time, causing runs to behave inconsistently.
+  Some of test propositions:
+  1. DNS Caching Program  
+     - Resolve a domain name repeatedly, printing the resolution time or IP.  
+     - Compare results across multiple fresh runs.  
+     - Variation indicates leftover DNS cache.
+  
+  2. File Read Speed  
+     - Read a large file once, measure read time, exit.  
+     - Next run does the same.  
+     - If the second run is significantly faster, leftover page cache is present.
+  
+  3. Journal Replay Check  
+     - Force a filesystem journal flush by creating and deleting files.  
+     - On next run, check if the filesystem replays any of those transactions.  
+     - If so, the journal was not cleared.
+  
+  4. Repetitive Logging  
+     - Write logs to a system log (if accessible), measure the write performance or checksums.  
+     - If subsequent runs show drastically different performance or partial logs, caching is inconsistent.
+  
+  5. DNS TTL Edge  
+     - Use a domain with a very short TTL.  
+     - Compare the IP or resolution time across back-to-back runs.  
+     - If it never refreshes as expected, the cache is persisting.
+- |
+  Non-deterministic item: File Descriptors & Lock Files.
+  Open file descriptors or lock files might remain if the container doesn’t clean up properly, causing new processes to fail acquiring locks or read stale data.
+  Some of test propositions:
+  1. Lockfile Competition  
+     - Create a lockfile (e.g., using `flock`) in one run.  
+     - Check if it’s still locked in the next run by trying to acquire it.  
+     - If locked, leftover descriptor persists.
+  
+  2. Stale PID File  
+     - Program writes its PID to `/var/run/myapp.pid` and does not remove it before exit.  
+     - Next run checks if that PID file remains.  
+     - If yes, leftover file descriptors or lock state is present.
+  
+  3. Exclusive File Open  
+     - Open a file with exclusive access in one run, do not close it, exit.  
+     - Next run attempts to open the same file exclusively.  
+     - If it fails, the descriptor from the prior run was never released.
+  
+  4. Directory FD Leaks  
+     - Keep a directory open via a file descriptor, then exit abruptly.  
+     - Next run checks if that FD usage is still blocking modifications.  
+     - If blocked, leftover FD is present.
+  
+  5. Advisory Lock Persistence  
+     - Use `fcntl` or `flock` with advisory locks in the first run.  
+     - Second run attempts to lock the same file.  
+     - If it cannot, the lock is persisting across runs.
+- |
+  Non-deterministic item: Concurrent Access to Shared Host Resources.
+  If multiple containers or processes share host resources (disks, logs, caches), one execution can influence another, yielding unpredictable results.
+  Some of test propositions:
+  1. Shared File Race  
+     - Two programs attempt to write to the same host-mounted file.  
+     - If one sees the other’s partial write or experiences an unexpected read error, concurrency introduced nondeterminism.
+  
+  2. Host-Level Database Access  
+     - If a local DB is accessible to all containers, insert rows from one program, read them from another.  
+     - Compare read results across runs.  
+     - Unexpected data presence indicates cross-run contamination.
+  
+  3. Host Logging Collisions  
+     - Write logs to a shared host path.  
+     - Another program checks the logs for the presence of foreign entries.  
+     - If foreign data appears, concurrency or leftover logs are interfering.
+  
+  4. Bandwidth/IO Variation  
+     - Two containers concurrently attempt large file transfers to a shared disk.  
+     - Measure throughput in each run.  
+     - Inconsistent or highly variable results show concurrency interference.
+  
+  5. Shared Memory Device  
+     - If a special device (like `/dev/shm`) is shared, write data there.  
+     - Next run tries to read leftover content.  
+     - If found, concurrency or leftover data is present.
+- |
+  Non-deterministic item: Symbolic Links or Mount Points.
+  If the container filesystem uses symlinks or mounts that point outside the intended sandbox, data from other runs or the host can leak, causing unexpected variations.
+  Some of test propositions:
+  1. Symlink Creation Test  
+     - Create a symlink in the container pointing to a file outside the container root.  
+     - Next run checks if that symlink is still valid or if it was removed.  
+     - If it persists, the mount/FS wasn’t fully reset.
+  
+  2. Chroot Check  
+     - Attempt a `chroot` into a subdirectory.  
+     - If it can still access host-level files after exit, the mount isolation is incomplete.  
+     - Print discovered external files to confirm leakage.
+  
+  3. Mount Listing  
+     - Print `/proc/mounts` or run a mount listing to see if leftover or unexpected host mounts remain.  
+     - If so, symlink or mount persistence introduces nondeterminism.
+  
+  4. External Directory Writes  
+     - Write a file via a known symlink that should point outside the container.  
+     - On next run, check if that file or data is visible.  
+     - If yes, the environment is not fully isolated.
+  
+  5. Relative Path Confusion  
+     - Program attempts to open a file using a relative path that accidentally crosses a symlink boundary.  
+     - Compare the actual file opened across multiple runs.  
+     - If it changes location, nondeterministic path resolution is happening.
+

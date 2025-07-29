@@ -1,0 +1,18 @@
+scope_name: 'Memory_Layout__Access_Stack_Canaries'
+prompt: 'Analyze potential non-deterministic behavior within the Memory Layout & Access - Stack Canaries'
+subjects:
+- |
+  Random Stack Protector.
+  If enabled, the compiler inserts a “canary” value on the stack that is randomized at program or thread start. Buffer overflows or partial overwrites can produce different outcomes depending on the random canary.
+  Some of test propositions:
+  - Print Canary via Buffer Overrun  
+    Deliberately cause a small overflow to attempt reading the canary. If each run prints a different value, the canary is random.
+  - Check for Crash Variation  
+    Slightly overrun a buffer so the canary might change. If some runs crash and others do not, nondeterminism is confirmed.
+  - Multi-Thread Canary Check  
+    Start multiple threads that each risk a small overflow. Print messages if a canary mismatch is detected. Different crashes suggest random canaries per thread.
+  - Function-Specific Protector  
+    Compile with `-fstack-protector-strong`, overflow a function’s local buffer, and log whether the canary check triggers. Random results imply random canaries.
+  - Partial Overwrite Demo  
+    Overwrite only part of the canary and see if the detection triggers differently each run. Random canary values lead to unpredictable outcomes.
+

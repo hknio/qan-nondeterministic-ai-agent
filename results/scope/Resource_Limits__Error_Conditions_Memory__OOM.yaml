@@ -1,0 +1,32 @@
+scope_name: 'Resource_Limits__Error_Conditions_Memory__OOM'
+prompt: 'Analyze potential non-deterministic behavior within the Resource Limits & Error Conditions - Memory & OOM'
+subjects:
+- |
+  Out-of-Memory (OOM).
+  Because memory can be allocated in different orders or sizes, the process may hit the 1 GB limit at slightly different times. Shared libraries, caches, or runtime features can trigger OOM kills unpredictably. Stack vs. heap growth, GC timing, and minor logic differences can also affect peak usage, causing the kernel to terminate the program at varying points.
+  Some of test propositions:
+  - Progressive Heap Growth Program  
+    Continuously allocate memory in chunks of varying sizes and log each successful allocation’s index. Compare which allocation index (or total) is reached before OOM across runs.
+  - Variable Recursion Depth  
+    Recursively call a function, each time logging the depth. Slight differences can cause OOM at different recursion levels in repeated runs.
+  - Garbage-Collection Stress  
+    In a GC language, repeatedly allocate objects in a loop, logging the total allocated count before a possible OOM. Compare the final log across multiple runs.
+  - Cache/Buffer Variation  
+    Use an internal cache that grows until OOM. Log each cache flush or memory error. Different flush timings or memory fragmentation can yield inconsistent results.
+  - Random Allocation Sizes  
+    With a fixed pseudo-random seed, allocate blocks of random sizes and log each successful allocation. Subtle environment differences may still change the point of OOM termination across runs.
+- |
+  Overcommit & Page Faults.
+  Virtual memory overcommit may allow large allocations, but actual memory usage could trigger abrupt OOM kills at unpredictable times. Page faults can occur in different orders if memory is accessed in varied patterns. If swapping is enabled, thrashing or partial faults can stall or kill the process non-deterministically.
+  Some of test propositions:
+  - Sparse vs. Dense Allocation  
+    Allocate a larger virtual array than physical memory, touching only parts of it while logging the touched page indices. Compare termination points across runs.
+  - Random Access Touch  
+    Repeatedly access random offsets in a large array and log each access. Check for inconsistent faults or abrupt terminations at varying access counts.
+  - Thrash-Tester  
+    If swapping is available, spawn threads that use large amounts of memory simultaneously. Log progress or stalls before potential termination. Compare logs across runs.
+  - Overcommit Stress  
+    Allocate more total memory than 1 GB in small increments, logging each successful allocation. Some runs may appear fine until usage triggers OOM, others may fail earlier.
+  - Mapped File & Access  
+    `mmap` a file larger than available RAM and read random segments, logging each read. Different page-in times or partial faults may cause inconsistent kill points.
+

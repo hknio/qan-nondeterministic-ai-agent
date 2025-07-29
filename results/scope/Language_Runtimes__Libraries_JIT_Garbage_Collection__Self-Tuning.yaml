@@ -1,0 +1,74 @@
+scope_name: 'Language_Runtimes__Libraries_JIT_Garbage_Collection__Self-Tuning'
+prompt: 'Analyze potential non-deterministic behavior within the Language Runtimes & Libraries - JIT, Garbage Collection, & Self-Tuning'
+subjects:
+- |
+  Adaptive Optimization Heuristics.
+  Modern JIT compilers (for Java, .NET, JavaScript, etc.) detect "hot" methods and optimize them at runtime based on heuristics (e.g., method call counts, timing). Small variations in how often or when a method is called can trigger different optimization strategies or times, leading to potentially different code paths or performance profiles across runs.
+  Some of test propositions:
+  1. Repeated Hot-Loop Invocation  
+     - Write a program that repeatedly calls a function in a tight loop. Print out a counter whenever the loop completes a set number of iterations. Variations in how quickly the JIT optimizes may show different iteration counts at different times.
+  2. Varying Loop Pattern  
+     - Execute a loop that changes iteration counts in unpredictable ways (e.g., random increments) and measure at which iteration the function is optimized. Print timestamps or counters to stdout to detect differences.
+  3. Method Call Sequence Test  
+     - Create multiple methods that each do some work. Randomly call them in different sequences in the same run. Compare whether the “hot” method detection changes which methods get optimized first by logging the method that appears to run fastest in each invocation.
+  4. Profile-Based Logging  
+     - If available, query the runtime (e.g., `-XX:+PrintCompilation` in the JVM) to see when JIT optimizations happen, then print these events to stdout. Compare logs across runs to see if optimization order changes.
+  5. Short vs. Long Execution  
+     - Run the same code in two modes: a short 1-2 second run, and a longer 4-5 second run (within the 5s container limit). Print performance metrics or counters. If the short run does not consistently trigger the same optimization patterns, you may see output differences.
+- |
+  Speculative Optimizations & De-Optimization.
+  Many JITs perform speculative optimizations assuming common cases (e.g., a particular object type or code path). If the assumption is invalidated mid-execution, the runtime de-optimizes that code. The exact timing of speculation or de-optimization can vary with slight changes in data or thread scheduling.
+  Some of test propositions:
+  1. Type-Variant Invocation  
+     - Write a function that takes different subclasses or data types randomly (or in varied order). Print a checkpoint each time a new type is passed. If the runtime speculatively optimizes for a single type and then de-optimizes on encountering a new type, output might differ across runs.
+  2. De-Optimization Counter  
+     - If the runtime exposes a de-optimization counter or logs, print those logs to stdout. Repeated runs might show that the number of de-optimizations differs when certain assumptions are broken later in execution.
+  3. Hot Path Switching  
+     - Alternate between two code paths in a loop. One path is initially more frequent, then after some iterations, switch to the other path. Print the iteration count when switching. The timing of re-optimization or fallback might differ each run.
+  4. Random Data Structure Patterns  
+     - Provide random data to a function that was speculatively optimized for a narrower case. Log each function call result. If speculation fails at different times, the output will vary.
+  5. Mixed-Type Stress  
+     - Introduce object arrays or lists of varying types (integers, strings, custom objects) that are processed in a single loop. Log how many objects are processed before a performance drop or de-optimization message. Differences across runs show nondeterminism.
+- |
+  Tiered Compilation.
+  Some runtimes use tiered compilation: first a quick, interpreted or minimally optimized pass, then later a fully optimized pass if the method is deemed “hot.” The decision and timing of upgrading from Tier 1 to Tier 2 can vary based on observed usage patterns and runtime heuristics.
+  Some of test propositions:
+  1. Method Invocation Count Tracking  
+     - Call a single method in a loop and print the iteration count each time the method’s performance jumps (e.g., timing of a single iteration). If the jump occurs at different iteration counts, that indicates nondeterminism in tiered compilation.
+  2. Multi-Method Tiered Upgrade  
+     - Have multiple methods that approach the “hot” threshold simultaneously. Print which method hits a performance “boost” first. Variations in thread scheduling or memory usage may lead to different upgrade orders.
+  3. Short Bursts vs. Continuous  
+     - Call the method in short bursts, pause briefly, then resume. Print timestamps of these bursts. The tiered compiler might upgrade differently if it sees discontinuous bursts, causing inconsistent results across runs.
+  4. Loop with Periodic Logging  
+     - Within your main loop, log the average runtime of the method every second. If tiered compilation triggers unpredictably, you might see different performance patterns across repeated runs.
+  5. Trigger GC Interference  
+     - Combine heavy allocation (forcing GC) with a method that is nearing the tiered threshold. Print a message each time GC completes and note the method’s performance after GC. If the tiered compilation is delayed or altered by GC timing, that may appear differently across runs.
+- |
+  Concurrent JIT Threads.
+  Even on a single CPU, runtimes may spawn separate threads for background compilation. The OS scheduler can interrupt or reschedule tasks unpredictably, causing slight differences in when a method is compiled or recompiled, leading to different runtime performance or branching.
+  Some of test propositions:
+  1. JIT Thread Logging  
+     - If supported, enable a flag that logs background JIT events. Print these logs to stdout. Repeated runs might show different sequences or timings of compilation events.
+  2. Overlapping Workloads  
+     - Start a CPU-bound method that triggers JIT compilation and simultaneously run a separate loop. Print counters or progress from both loops. Observe if the final counts differ due to JIT thread scheduling.
+  3. Manual Delay Injection  
+     - Insert deliberate small sleeps or busy-wait loops to manipulate scheduling. Print messages before/after each sleep. If the background JIT thread runs at different times, overall performance logging might change.
+  4. Compilation vs. GC Race  
+     - Force many allocations while also relying on the JIT to compile new methods. Print messages whenever new methods are first called. The interplay of GC and JIT might cause inconsistent results.
+  5. Swapping “Hot” Methods  
+     - Alternate two methods that both require heavy compilation. Print which method got compiled first in each run. If background compilation threads schedule differently, the order can vary.
+- |
+  Startup vs. Warmup Differences.
+  JIT-based runtimes often behave differently during early execution (“cold start”) vs. after certain warmup thresholds are reached. Minor runtime or scheduling variations can change how quickly or extensively the JIT kicks in, causing distinct output or performance in short-lived processes.
+  Some of test propositions:
+  1. Cold vs. Warm Runs  
+     - Run the program once (short run), exit, then run again (longer run) in a loop. Print performance metrics each time. Check if short runs vary in performance or logs relative to longer runs.
+  2. Early Logging  
+     - Print timestamps or counters immediately at startup, then do the main workload. Differences in how long the runtime “initialization” takes may cause different optimization triggers, visible in logs.
+  3. Multiple Entrypoints  
+     - Write multiple main methods (or static initializers) that do quick tasks vs. more extended tasks. Print logs to see how each approach’s initialization differs. Variation in warmup can lead to inconsistent ordering of compiled code.
+  4. Delayed On-Purpose  
+     - Insert an artificial delay (like a brief sleep) before calling a hot function. Print logs around these calls. If the JIT has more time to pre-compile, runs might differ from the immediate-call scenario.
+  5. Check Summaries After 1s, 2s, 3s…  
+     - In a 5-second limit, periodically print a summary of how many methods are compiled or how many JIT events occurred. The time at which certain methods become optimized can vary across runs.
+

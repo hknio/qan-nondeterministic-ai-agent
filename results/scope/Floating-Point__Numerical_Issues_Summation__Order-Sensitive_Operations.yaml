@@ -1,0 +1,118 @@
+scope_name: 'Floating-Point__Numerical_Issues_Summation__Order-Sensitive_Operations'
+prompt: 'Analyze potential non-deterministic behavior within the Floating-Point & Numerical Issues - Summation & Order-Sensitive Operations'
+subjects:
+- |
+  Associativity & Non-Associative Operations.
+  Floating-point addition is not strictly associative. Summing numbers in different orders can lead to slight differences in rounding, which might vary if the code or compiler changes the summation order on different runs.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Generate a large array of floats and sum in random, forward, and reverse orders.  
+     - Print final sums to see differences across runs.
+  2. Rounding Mode & Extended Precision Variation  
+     - Apply different rounding modes while summing.  
+     - Print partial sums after each addition to check rounding differences.
+  3. Denormal & Underflow Detection  
+     - Include extremely small floats in the array.  
+     - Print partial sums to see if subnormal behavior changes results.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Force summation in SSE vs. x87.  
+     - Print final results for each method.
+  5. Speculative & Timing-Sensitive Check  
+     - Insert a time-based condition that occasionally changes summation order.  
+     - Print the chosen order and final sum to detect unpredictability.
+- |
+  Thread Interleaving in Summation.
+  Even on a single CPU, asynchronous callbacks or concurrency structures can reorder partial sums. If not carefully synchronized, floating results might differ from run to run.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Spawn threads or async tasks to sum portions of an array.  
+     - Print the final sum and check if interleaving changes the result.
+  2. Rounding Mode & Extended Precision Variation  
+     - Switch rounding modes in each thread.  
+     - Print combined results to detect differences if a thread changes global FPU state.
+  3. Denormal & Underflow Detection  
+     - In multiple threads, each accumulates small subnormal values.  
+     - Print final aggregates to see if unsynchronized merges differ.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - One thread uses SSE, another x87, then combine results.  
+     - Print final sum for each run.
+  5. Speculative & Timing-Sensitive Check  
+     - Use a timed lock or condition variable so threads get scheduled differently each run.  
+     - Print the final outcome to detect numeric variations.
+- |
+  Reduction Patterns / Loop Unrolling.
+  Compilers often unroll loops or reorder partial sums for performance. Different optimization decisions between runs or compilers can shift the summation order.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Force different unroll levels (e.g., using compiler hints) for the same data.  
+     - Print final results and compare.
+  2. Rounding Mode & Extended Precision Variation  
+     - In each unrolled iteration, store partial results to memory vs. keeping them in registers.  
+     - Print partial sums after unrolled sections.
+  3. Denormal & Underflow Detection  
+     - With small floats, see if unrolled loops do different partial merges that flush differently.  
+     - Print final sums each run.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Compare a fully unrolled SSE loop to a scalar x87 loop.  
+     - Print differences in final sum.
+  5. Speculative & Timing-Sensitive Check  
+     - Insert timing checks that skip or repeat unrolled segments.  
+     - Print which path was taken and final sum.
+- |
+  Extreme Values (Overflows / Underflows).
+  When summations approach `float_max` or near zero, small rounding differences can tip values into overflow (Infinity) or underflow (0), causing large discrepancies from run to run.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Sum large floats that approach overflow.  
+     - Print final result to see if it becomes Inf in one run vs. a large finite number in another.
+  2. Rounding Mode & Extended Precision Variation  
+     - Switch rounding modes while summing large or tiny numbers.  
+     - Print intermediate steps to detect if rounding triggers earlier overflow/underflow.
+  3. Denormal & Underflow Detection  
+     - Use extremely small floats near underflow.  
+     - Print iteration counts as they become zero or subnormal.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Attempt the same near-boundary sums in SSE vs. x87.  
+     - Print which approach hits overflow or underflow first.
+  5. Speculative & Timing-Sensitive Check  
+     - If time-based speculation decides to skip or reorder operations, final sums might differ near the boundary.  
+     - Print the final states each run.
+- |
+  Intermediate Buffering.
+  If intermediate results are sometimes kept in registers (80-bit) vs. stored to memory (64-bit), small rounding differences can accumulate. Different optimization paths might store more or fewer times.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Force code paths that either keep sums in registers or store them frequently.  
+     - Print the final results to see differences.
+  2. Rounding Mode & Extended Precision Variation  
+     - Switch rounding modes while explicitly forcing a store to memory after each operation.  
+     - Print intermediate sums to see rounding changes.
+  3. Denormal & Underflow Detection  
+     - Keep partial products near subnormal range in registers vs. storing them.  
+     - Print final products each run.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - SSE typically uses 64-bit registers; x87 uses 80-bit.  
+     - Print final outcomes to detect double-rounding differences.
+  5. Speculative & Timing-Sensitive Check  
+     - Insert timing checks that force or skip memory stores.  
+     - Print the path taken and final results to find variations.
+- |
+  Denormals & Floating-Point Exceptions.
+  Working with subnormal numbers triggers special handling that can vary if FTZ or DAZ modes are toggled. Floating-point exceptions (like underflow or invalid) might be masked differently.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Summation of many subnormals.  
+     - Print final sum to see if it differs across runs (flushed vs. not).
+  2. Rounding Mode & Extended Precision Variation  
+     - Switch rounding modes while repeatedly computing subnormal results.  
+     - Print outputs each iteration for differences.
+  3. Denormal & Underflow Detection  
+     - Specifically measure performance or final result while subnormals exist.  
+     - Print if the final value is 0 or a subnormal in each run.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - SSE path might flush subnormals, x87 might keep them.  
+     - Print final results side by side.
+  5. Speculative & Timing-Sensitive Check  
+     - If a time-based condition decides whether to skip subnormal calculations, final results may differ.  
+     - Print which branch was taken each run.
+

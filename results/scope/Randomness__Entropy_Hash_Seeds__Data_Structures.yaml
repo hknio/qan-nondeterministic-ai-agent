@@ -1,0 +1,31 @@
+scope_name: 'Randomness__Entropy_Hash_Seeds__Data_Structures'
+prompt: 'Analyze potential non-deterministic behavior within the Randomness & Entropy - Hash Seeds & Data Structures'
+subjects:
+- |
+  Hash Map Seed Randomization.
+  Many languages randomize hash seeds to prevent collision attacks. This can change the order or the collisions within hash-based structures (dictionaries, maps, sets) unless explicitly fixed.
+  Some of test propositions:
+  - idea 1: Insert a set of 20 key-value pairs into a Python dictionary, then iterate and print the order of keys. Compare the output across runs.  
+  - idea 2: Use a known set of colliding keys (strings that hash to the same value in a given language). Print how these collisions are resolved. If the resolution changes across runs, the seed is random.  
+  - idea 3: Perform a stress test by inserting many keys (e.g., 1,000) and then printing iteration order. Check consistency across multiple runs on one server.  
+  - idea 4: Run the same stress test on a second server. Compare the key iteration order. If seeds differ, you’ll see different output.  
+  - idea 5: Attempt to set environment variables or language flags (e.g., `PYTHONHASHSEED`) to a fixed value and repeat the test to confirm that the iteration order then stabilizes.
+- |
+  Runtime-Specific RNG for Data Structures.
+  Some runtime environments randomize data structure iteration (e.g., large dictionaries, sets) or re-seed internal structures to improve security. Garbage collection triggers can also lead to rehashes.
+  Some of test propositions:
+  - idea 1: Create a program that inserts random volumes of data into a map or set, triggers a GC event (if the language has an API for it), and then prints iteration order. Compare across runs.  
+  - idea 2: Test with near-threshold sizes—for example, if a dictionary changes behavior at 8, 32, or 64 entries—and see if iteration order changes unpredictably.  
+  - idea 3: In languages like Java, test different concurrency modes (e.g., `ConcurrentHashMap`) to see if internal randomization seeds differ per thread.  
+  - idea 4: Manually provoke rehashing by frequently resizing the data structure (inserting and removing keys). Print the final iteration sequence. Compare across runs.  
+  - idea 5: Use environment or runtime flags known to disable or fix randomization (e.g., special debug settings) and see if that yields consistent iteration sequences.
+- |
+  Configuration & Environment.
+  Environment variables (like `PYTHONHASHSEED`) or runtime configurations can instruct the language to randomize or fix seeds. Dynamically loaded modules may also incorporate their own RNG.
+  Some of test propositions:
+  - idea 1: Launch a Python script with `PYTHONHASHSEED=random`, insert a set of dictionary items, and print them. Repeat with `PYTHONHASHSEED=0`. Compare.  
+  - idea 2: For languages that allow configuration files or startup scripts (e.g., Java system properties), run the same code with different property values that control hashing or seeding.  
+  - idea 3: Toggle any known language-level “anti-DOS collision” flags and observe differences in map iteration or performance.  
+  - idea 4: Temporarily remove or disable certain extensions/modules to see if their internal RNG usage changes the program’s final printed output.  
+  - idea 5: On multiple servers, alter environment variables systematically (e.g., changing them from run to run) to detect if the program’s stdout changes, revealing environment-based seeds.
+

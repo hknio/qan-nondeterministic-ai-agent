@@ -1,0 +1,142 @@
+scope_name: 'Cross-Execution__Cross-Contract_Effects_State_Caching__Persistence'
+prompt: 'Analyze potential non-deterministic behavior within the Cross-Execution & Cross-Contract Effects - State Caching & Persistence'
+subjects:
+- |
+  Non-deterministic item: Incomplete VM/Container Teardown.
+  If the container or VM is not fully reset between runs, temporary data (files, environment variables, partially cached data) may persist. This can lead to different outcomes on subsequent executions.
+  Some of test propositions:
+  1. Marker File Persistence  
+     - Create a file `/tmp/marker_<random>` with a unique ID and print the ID.  
+     - On the next run, check if the file/ID still exists.  
+     - If found, non-determinism is confirmed.
+  
+  2. Config File Variation  
+     - Copy a small config file into `/etc` or `/home` and alter it during execution.  
+     - Compare the presence or contents of that file in the next run.  
+     - Persistence indicates incomplete teardown.
+  
+  3. Package Installation Footprint  
+     - Simulate installing or removing a small package (e.g., using `apk add`) and record version info to `stdout`.  
+     - On the next run, check if the installed package remains or changed.  
+     - Any leftover installation data implies incomplete teardown.
+  
+  4. Process Listing Trap  
+     - Start a background process (sleep 2s) and record its PID, then exit.  
+     - Next run checks if any leftover process/PID is present.  
+     - If yes, teardown was incomplete.
+  
+  5. Modified Hostname/Etc Files  
+     - Edit `/etc/hostname` or `/etc/hosts` during the run, outputting the new content.  
+     - On the next run, verify if the modification persists.  
+     - Persistence shows incomplete teardown.
+- |
+  Non-deterministic item: Uncleared Memory Buffers.
+  Memory or swap not zero-initialized can leak remnants from previous executions. This leads to different runtime states or data observed by subsequent programs.
+  Some of test propositions:
+  1. Large Array Scan  
+     - Allocate a large array (e.g., 100 MB) and read its uninitialized contents.  
+     - Hash or print any non-zero segments.  
+     - Compare outputs across runs for unexpected memory residue.
+  
+  2. Stack Garbage Check  
+     - Recursively call a function that prints uninitialized local variables.  
+     - Look for inconsistent or random values across runs.  
+     - Repeated differences suggest leftover data in stack frames.
+  
+  3. Shared Memory Region  
+     - If possible, create a System V or POSIX shared memory segment, write random data, then deallocate.  
+     - On next run, attempt to recreate and inspect leftover bytes.  
+     - Non-zero leftover data indicates memory not cleared.
+  
+  4. Process Crash Dump  
+     - Deliberately crash the process (e.g., `SIGSEGV`) after storing known data in memory.  
+     - On restart, run a program that checks the same memory region.  
+     - If the old data reappears, memory wasn’t cleared.
+  
+  5. Swap Check  
+     - Force the program to allocate near the memory limit (1024 MB) to trigger swapping.  
+     - Release memory, exit, and re-run a smaller program checking if any leftover data is in fresh allocations.  
+     - Non-zero “garbage” suggests uncleared buffers.
+- |
+  Non-deterministic item: Leftover Configuration / Environment Variables.
+  If environment variables or system config remain altered after an execution, subsequent runs may read unexpected values, causing diverging behavior.
+  Some of test propositions:
+  1. Env Var Reporter  
+     - Set custom env vars in the program (e.g., `export MY_TEST_VAR=random123`) and print them.  
+     - Next run checks if `MY_TEST_VAR` is still defined.  
+     - If yes, environment was not reset.
+  
+  2. Shell Profile Modification  
+     - Append lines to `~/.profile` or `/etc/profile` (if writable) to set a new environment variable.  
+     - On the next run, check if that variable is automatically set.  
+     - Persistence indicates leftover config.
+  
+  3. Locale/Timezone Change  
+     - Change the locale/timezone (e.g., `export LC_ALL=en_GB.UTF-8`) or alter `/etc/localtime`.  
+     - Print the current locale/timezone in the next run.  
+     - If it remains changed, environment variables or config remain.
+  
+  4. User-Level Config  
+     - Write a custom setting into `~/.config/myapp/config.json`.  
+     - On next run, check if `myapp` sees that config file still populated.  
+     - Found data implies leftover environment or user config.
+  
+  5. PATH Manipulation  
+     - Modify the `PATH` variable by injecting a temporary directory and place a dummy executable there.  
+     - Next run tries to call the dummy executable by name.  
+     - If it succeeds, the leftover PATH manipulation remains.
+- |
+  Non-deterministic item: Library / Dynamic Linker Caches.
+  Dynamic linkers and system libraries might cache symbol resolutions or other data. If these caches persist across runs, outcomes or performance paths can change unpredictably.
+  Some of test propositions:
+  1. LD Cache Variation  
+     - Program triggers dynamic loading of a rarely used library.  
+     - Record loading times or any logs produced on first vs. subsequent runs.  
+     - Large variations can indicate persistent caching across runs.
+  
+  2. DNS Resolve Loop  
+     - Repeatedly call a DNS lookup function (e.g., `getaddrinfo`) for a local domain or invalid domain.  
+     - Compare results and times across runs.  
+     - If results differ (e.g., caching TTL not reset), there's leftover state.
+  
+  3. Symbol Resolution Timing  
+     - Use `dlopen()` on a library and measure the time from start to resolution.  
+     - Compare times across multiple fresh runs.  
+     - If it speeds up after the first run, there may be a persistent cache.
+  
+  4. Library Preload Check  
+     - Attempt to preload a library (`LD_PRELOAD`) in one run.  
+     - Next run checks if that library is still being used or any trace remains.  
+     - If found, the dynamic linker environment didn’t reset fully.
+  
+  5. Versioned vs. Unversioned Libraries  
+     - Switch between different versions of the same library across runs.  
+     - Print which version actually gets loaded.  
+     - If the loader still picks the old version sometimes, leftover or cached link info is in effect.
+- |
+  Non-deterministic item: Unexpected Persistence Through Shared Host Systems.
+  Host-level page caches, kernel features (like KSM), or shared virtualization layers might inadvertently carry data from one container instance to another, leading to unpredictable cross-run influences.
+  Some of test propositions:
+  1. Host Cache Timing Check  
+     - Measure read speeds of a large file stored in the container’s filesystem on first vs. subsequent runs.  
+     - Sudden speed improvements might indicate host-level caching not cleared.
+  
+  2. KSM Detection  
+     - Allocate a large memory region and fill it with repeated patterns.  
+     - Check if the memory usage reported is lower in subsequent runs.  
+     - If yes, the host might be merging pages from a previous run.
+  
+  3. Network Throughput Variation  
+     - If a host-shared network interface caches connection data, repeated connections might behave differently.  
+     - Print round-trip times or handshake durations across runs.  
+     - Unusual differences can point to leftover state in host networking.
+  
+  4. Shared PID/Namespace Leaks  
+     - Attempt to see if any processes from a previous run remain accessible or if a previous run’s PID space is visible.  
+     - If so, host-level isolation is incomplete.
+  
+  5. VFS / OverlayFS Artifacts  
+     - In some setups, container filesystems are layered. Write random files, unmount, then re-run.  
+     - Check if the new container sees leftover merges or unexpected layers.  
+     - If leftover data is found, the layering persists across runs.
+

@@ -1,0 +1,32 @@
+scope_name: 'Filesystem__Environment_Environment_Variables__Locale'
+prompt: 'Analyze potential non-deterministic behavior within the Filesystem & Environment - Environment Variables & Locale'
+subjects:
+- |
+  Environment Variable Differences.
+  Programs rely on environment variables (`PATH`, `LD_LIBRARY_PATH`, `LANG`, `TZ`, etc.) to decide which executables to run, how to parse locales, or how to handle time formatting. If these variables differ among validators (or even among runs), program behavior can diverge.
+  Some of test propositions:
+  1. Environment & Locale Dumper  
+     - Print out all environment variables. Also format the current time/date or a sample number to see if locale affects the output.  
+  2. Path Resolution Check  
+     - Attempt to run a command (e.g., `which ls`), print the resolved path. Compare across runs to detect if `PATH` differs.  
+  3. Forced Locale Variation  
+     - If possible, set `LC_ALL=en_US.UTF-8` vs. `LC_ALL=C` in consecutive runs and print how a sample string or date is processed. Compare outputs.  
+  4. Time Zone Test  
+     - Print local time (as reported by `date` with no arguments) to see if `TZ` or system default differs across runs.  
+  5. Custom Env Var Probe  
+     - Check for presence of app-specific environment variables (e.g., `PYTHONHASHSEED`). Print their values and confirm they remain consistent across validators.
+- |
+  NSS / `/etc/passwd` Lookups.
+  User/group resolution can vary if NSS (Name Service Switch) is configured differently or if `/etc/passwd` and `/etc/group` differ. If code calls `getpwnam()`, it might return different UIDs or GIDs. Also, remote resolvers or caching daemons can introduce delays or inconsistent lookups.
+  Some of test propositions:
+  1. NSS & `/etc/passwd` Inspector  
+     - Query known users/groups (like `root`, `nobody`) and print the UID/GID. Compare across runs to detect differences.  
+  2. Dump `getent` Output  
+     - Run `getent passwd` or `getent group` if available, then compare if the lines differ between runs/hosts.  
+  3. Compare `/etc/passwd`  
+     - Print the contents (or a checksum) of `/etc/passwd` and `/etc/group`. Ensure they match exactly across runs.  
+  4. Check Non-Existing User  
+     - Call `getpwnam("somefakeuser")` to ensure consistent “not found” result. Differences might indicate a remote lookup or misconfiguration.  
+  5. Repeated Lookups  
+     - Repeatedly query the same user in a loop. If any caching or rate-limiting is present, results or performance might diverge among runs.
+

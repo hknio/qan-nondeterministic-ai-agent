@@ -1,0 +1,31 @@
+scope_name: 'Randomness__Entropy_Hardware_RNG_Instructions'
+prompt: 'Analyze potential non-deterministic behavior within the Randomness & Entropy - Hardware RNG Instructions'
+subjects:
+- |
+  RDRAND / RDSEED.
+  Modern x86 CPUs provide RDRAND/RDSEED instructions that return hardware-generated random data. If these instructions are not intercepted or replaced by a deterministic source in the virtual environment, the output will differ each call.
+  Some of test propositions:
+  - idea 1: Compile a C/C++ program that calls RDRAND (inline assembly or compiler intrinsics) in a loop, printing values. Compare across runs.  
+  - idea 2: Run the same binary on different servers to see if the CPU model or microcode leads to distinct random sequences.  
+  - idea 3: Check if the hypervisor is emulating RDRAND by comparing the pattern of outputs. Real hardware RNG often appears more random, whereas emulation may repeat or follow simpler patterns.  
+  - idea 4: Execute the test multiple times in rapid succession. If each run prints distinct values, it confirms hardware-level entropy is not pinned.  
+  - idea 5: Attempt to limit RDRAND usage by using CPU flags (if accessible) or kernel parameters (if your environment allows). See if the output then stabilizes or triggers an error (indicating the instruction was blocked).
+- |
+  Other CPU Instructions with Random Behavior.
+  Certain CPU features (performance monitoring counters, timestamps) can behave unpredictably if used as a pseudo-random source, especially under virtualization. Speculative execution artifacts can also introduce minor variations.
+  Some of test propositions:
+  - idea 1: Create a small program that reads the timestamp counter (`rdtsc` on x86) in a tight loop, prints values, and compares across runs to detect high variability.  
+  - idea 2: If performance counters are accessible, read them in a loop to see if they exhibit unpredictable jumps that differ from run to run.  
+  - idea 3: Combine `rdtsc` reads with minimal computation to see if scheduling or speculation under single-CPU constraints leads to different outputs.  
+  - idea 4: Attempt to measure the difference in consecutive timestamp readings. If the distribution of deltas changes across runs, it indicates micro-timing nondeterminism.  
+  - idea 5: Compare results on multiple servers with different CPU models or virtualization setups. Different hardware can produce distinct timing patterns even under a single CPU constraint.
+- |
+  Compiler / Runtime Intrinsics.
+  Compilers or JIT runtimes may optimize code to use hardware RNG instructions or insert randomization logic (for example, for security or optimization purposes). This can cause changes in output without explicit code changes.
+  Some of test propositions:
+  - idea 1: Compile the same code with different optimization levels (e.g., `-O0`, `-O2`) and see if the binary produces different random-like outputs at runtime.  
+  - idea 2: In a JIT language (Java, .NET), run the code multiple times to check if the JIT compiler introduces or omits intrinsic calls for randomness.  
+  - idea 3: Use a disassembly tool (where allowed) to confirm if RDRAND or other instructions are being inlined. If so, compare output across runs.  
+  - idea 4: Call library functions that are known to be replaced by intrinsics (e.g., certain cryptographic or secure memory operations). Print their results to see if they differ.  
+  - idea 5: Force repeated warm-up iterations in a JIT environment, then capture the final execution output. If each run’s “steady state” differs, the compiler or runtime’s intrinsics might be introducing nondeterminism.
+

@@ -1,0 +1,49 @@
+scope_name: 'Implementation_Bugs__Undefined_Behavior_Compiler_Runtime_Variation'
+prompt: 'Analyze potential non-deterministic behavior within the Implementation Bugs & Undefined Behavior - Compiler/Runtime Variation'
+subjects:
+- |
+  Different Compiler Versions.
+  Slight differences in compilers (e.g., GCC vs. Clang, or different GCC releases) can produce different instruction sequences, optimizations, or bug fixes. Code with UB can manifest differently when built with different compilers.
+  Some of test propositions:
+  - Idea 1: Compile the same C++ code snippet with two different compiler versions (if both are available in the Alpine environment). Compare the final numeric outputs in repeated runs.
+  - Idea 2: Use a code snippet known to rely on subtle undefined behavior, build with multiple compiler versions, and print a final hash. Differences indicate potential non-determinism.
+  - Idea 3: Maintain a test suite with a single “master” source. For each compiler version, log the generated assembly snippet (if feasible) plus the runtime output. Compare.
+  - Idea 4: Build with older stable vs. bleeding-edge compiler versions. Re-run multiple times on different servers and see if any differences emerge in output.
+  - Idea 5: For each compiler version, add extra code that shouldn’t change logic (e.g., no-op function calls) to see if the optimizer reorganizes the program in ways leading to different outputs.
+- |
+  Compiler Optimization Flags.
+  Aggressive optimizations (`-O2`, `-O3`, LTO) can reorder operations, inline functions, or remove seemingly necessary checks. Code containing UB might behave differently under these flags, leading to run-to-run divergences.
+  Some of test propositions:
+  - Idea 1: Create a benchmark that sums up large arrays or performs floating-point operations. Build it under different optimization levels. Print final sums to detect divergences.
+  - Idea 2: Enable Link-Time Optimization in one build vs. a non-LTO build. Compare final outputs or logs.
+  - Idea 3: Place volatile operations or inline assembly in the code to see if the optimizer’s reordering changes the final result.
+  - Idea 4: Combine function inlining with code that has small timing or data dependencies, then measure and print run-specific counters or checksums.
+  - Idea 5: Introduce intentionally borderline UB (e.g., uninitialized variable) and build with `-O0`, `-O2`, `-O3`. Compare repeated runs for differences in final printed results.
+- |
+  Runtime Library Variations.
+  Differences in standard library implementations (e.g., glibc vs. musl, or different versions) and memory allocators can alter memory layouts, buffering, and corner-case handling—potentially affecting outputs of code that relies on UB or untested paths.
+  Some of test propositions:
+  - Idea 1: Compare the same program dynamically linked against musl vs. glibc (if glibc is available in Alpine environment) and see if final outputs differ.
+  - Idea 2: Stress-test memory allocation patterns (random large/small allocations) under different malloc implementations if possible. Print a final usage or checksum.
+  - Idea 3: Use standard library calls (e.g., `printf`, `strtod`, `locale` functions) in borderline ways. Compare outputs across library variants or versions.
+  - Idea 4: Have a program that intensively reads/writes to `FILE*` streams with minimal flushes. Check if the final buffered content differs across libraries.
+  - Idea 5: Force repeated runs in the same container but with small environment differences (e.g., environment variables set/unset). Log final library behavior or error codes.
+- |
+  JIT or Dynamic Code Generation.
+  Languages using JIT (e.g., Java, JavaScript, .NET) can optimize code differently at runtime based on heuristics or internal profiling. Even with a static clock/time, the warm-up order or compilation triggers can vary slightly.
+  Some of test propositions:
+  - Idea 1: Run a short Java or .NET code snippet multiple times, each time printing a final numeric result from a CPU-intensive loop. Compare across runs or servers.
+  - Idea 2: Use a JavaScript engine (if available) to run a script that triggers various inline caches or hidden-class transitions. Print final computed data.
+  - Idea 3: Vary the number of iterations in a tight loop to see if the JIT changes how code is optimized mid-run, altering final floating-point accumulations.
+  - Idea 4: Introduce a short “warm-up” phase and then measure the final performance or sum. Print the sum to see if the JIT introduced differences from run to run.
+  - Idea 5: Force different initial conditions (e.g., command-line flags to the JIT engine) to check if the final logic output changes due to different optimization strategies.
+- |
+  Floating-Point or SIMD Differences.
+  Minor variations in floating-point rounding modes, SSE/AVX usage, or fused multiply-add instructions can lead to slightly different results. Code with tight floating-point precision requirements can produce divergent outputs.
+  Some of test propositions:
+  - Idea 1: Perform repeated floating-point sums of an array of numbers in random order. Print final sums to detect floating-point rounding differences.
+  - Idea 2: Use SSE intrinsics in one build vs. scalar-only math in another build. Compare final outputs for any discrepancy.
+  - Idea 3: Test subnormal (denormal) numbers in loops, printing how many times the loop processes them or how they get rounded.
+  - Idea 4: Force explicit rounding modes (if available) via `fesetround` calls and see if results differ across multiple runs or servers.
+  - Idea 5: Introduce an FMA instruction path vs. a non-FMA path in the same code (conditional compilation). Compare final floating-point accumulations.
+

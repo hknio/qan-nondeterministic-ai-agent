@@ -1,0 +1,32 @@
+scope_name: 'Memory_Layout__Access_Swapping___Paging'
+prompt: 'Analyze potential non-deterministic behavior within the Memory Layout & Access - Swapping / Paging'
+subjects:
+- |
+  Swapping Under Pressure.
+  If the system or container allows swapping under memory pressure, the timing of page swaps can vary unpredictably based on the kernel’s page replacement decisions, I/O latencies, and host-level contention.
+  Some of test propositions:
+  - High Memory Usage  
+    Allocate memory close to the 1 GB limit and track performance or output timing. Swapping can cause varied slowdown across runs.
+  - Random Access Patterns  
+    Repeatedly touch random addresses in a large array. Log the time for a pass. Different swap timing leads to unpredictable performance results.
+  - Page Out Tracker  
+    Use `mincore()` or `/proc/self/status` (if accessible) to see which pages are resident vs. swapped out, then print counts regularly. Variation suggests nondeterminism.
+  - Disk I/O Contention  
+    Run a background I/O load while accessing large amounts of memory. Print timing differences that arise from unpredictable swap I/O latencies.
+  - Sudden CPU Spike  
+    Idle the program with allocated memory, then cause a CPU spike. Log if swap-in/out events happen. Inconsistent timings across runs indicate nondeterministic swapping.
+- |
+  Page Fault Timing.
+  When pages are not resident in memory, a page fault must bring them in. The kernel may handle faults at unpredictable times, especially if swapping or concurrency is involved, causing performance or behavioral differences.
+  Some of test propositions:
+  - Lazy Allocation Test  
+    Call `malloc` for a large region but don’t initialize it. Touch pages one by one, logging when the page fault happens. The fault timing can vary across runs.
+  - Prefaulting vs. On-Demand  
+    Compare a run that `memsets` (prefaults) memory right after allocation vs. one that touches it lazily. Print page-fault counts to see if on-demand handling is inconsistent.
+  - Access in Different Orders  
+    Shuffle the order in which memory pages are accessed and log the time between accesses. Varying fault patterns show nondeterminism.
+  - Simulate I/O Wait  
+    Use near-limit memory, force page-outs, then quickly re-access pages. Print how long it takes to read them back. Swapping latencies can differ each run.
+  - Count Minor vs. Major Faults  
+    Use `getrusage()` or `/proc/self/stat` to track page faults during repeated reads of newly mapped memory. If the ratio of minor to major faults changes unpredictably, that’s nondeterministic paging behavior.
+

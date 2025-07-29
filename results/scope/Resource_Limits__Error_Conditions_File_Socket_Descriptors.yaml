@@ -1,0 +1,32 @@
+scope_name: 'Resource_Limits__Error_Conditions_File_Socket_Descriptors'
+prompt: 'Analyze potential non-deterministic behavior within the Resource Limits & Error Conditions - File/Socket Descriptors'
+subjects:
+- |
+  FD Allocation Order.
+  Even in a fresh environment, libraries or background tasks can open file descriptors (FDs). The numeric FD returned by `open()`, `socket()`, etc., can differ if concurrency or hidden processes also open/close FDs. If the application (intentionally or unintentionally) depends on specific FD numbering, this variability leads to divergent behavior.
+  Some of test propositions:
+  - Repeated Open/Close Loop  
+    Open and close many files in a loop, logging each newly assigned FD. Compare the sequence of FD numbers across multiple runs.
+  - Socket Creation Logging  
+    Rapidly create multiple sockets and log the assigned FD or ephemeral port. Check if the FD/port sequence differs across runs.
+  - Simulated “Background” Opens  
+    Have a helper thread randomly open/close FDs while the main thread does the same, logging all assigned FDs. Compare allocation order across runs.
+  - FD Exhaustion  
+    Open files until hitting `RLIMIT_NOFILE`. Log how many files were successfully opened. Minor timing differences may cause inconsistent final counts.
+  - FD-Dependent Output  
+    Print an error message including the FD number whenever an open fails. Compare logs to see if FD numbers or failure points differ across runs.
+- |
+  RLIMIT & Throttling.
+  When `RLIMIT_NOFILE`, `RLIMIT_STACK`, `RLIMIT_AS`, or CPU time limits are hit, the program can fail at unexpected points. Different code paths or timing can cause partial I/O operations, abrupt signals (`SIGSEGV`, `SIGABRT`), or early kills, resulting in varied outputs.
+  Some of test propositions:
+  - Burst File Opening  
+    Quickly open a large number of files in succession, logging each success or failure. Compare how soon failures occur across runs.
+  - CPU Spike Loop  
+    Alternate between CPU-bound loops and logging statements to approach the 5-second limit. Different runs may see the program terminate at different loop iterations.
+  - Stack Depth Test  
+    Call a function recursively in increments, logging each call depth. See if `RLIMIT_STACK` triggers at different depths across runs.
+  - Memory Mapping Test  
+    Repeatedly `mmap` chunks of memory up to the limit and log each mapping. If `RLIMIT_AS` is hit, the run might end at different mapping counts.
+  - Partial I/O Stress  
+    Continuously write data to multiple files/sockets while nearing the FD or memory limit. Log every successful write; compare how many writes occur before failures across runs.
+

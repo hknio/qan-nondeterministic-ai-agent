@@ -1,0 +1,74 @@
+scope_name: 'Language_Runtimes__Libraries_Finalizers___Destructors'
+prompt: 'Analyze potential non-deterministic behavior within the Language Runtimes & Libraries - Finalizers / Destructors'
+subjects:
+- |
+  Indeterminate Ordering.
+  Finalizers in managed languages run when the GC deems objects collectible. The order in which objects enter the finalizer queue is not guaranteed and can vary, causing nondeterministic resource cleanup sequences.
+  Some of test propositions:
+  1. Unique ID Finalizer  
+     - Assign each object a unique ID and print that ID in its finalizer. Allocate many objects, let them go out of scope, then observe if the sequence of printed IDs differs across runs.
+  2. Batch Allocations  
+     - Allocate objects in batches (e.g., each batch has a numeric label), then track finalization. If finalization does not respect batch boundaries, the logs will intermix IDs from different batches in unpredictable ways.
+  3. Forced GC Calls  
+     - Manually invoke GC if permitted, then print the finalizer completions. The finalizer queue might still reorder objects in ways that differ across runs.
+  4. Time-Based Logging  
+     - Print the current “logical time” or iteration count at finalization. Variation in finalizer scheduling can produce different finalization times for the same test input.
+  5. Re-Run Test  
+     - Re-run multiple times under identical conditions, capturing finalizer logs. If finalization order changes, it confirms nondeterminism.
+- |
+  Destruction of Resources.
+  If the program or libraries rely on finalizers to release external resources (files, sockets, etc.), the exact timing or order of closure is not guaranteed. This can manifest in logs or in which resource is closed first across runs.
+  Some of test propositions:
+  1. File Create & Auto-Close  
+     - Create files but rely solely on finalizers to close them. Log when each file is actually closed. Differences in closure timing or ordering across runs reveal nondeterminism.
+  2. Socket Open & Finalize  
+     - Open multiple network sockets in short order, then let them go out of scope. Print a log whenever a socket is actually closed in its finalizer. The sequence might vary each run.
+  3. Resource Counting  
+     - Keep a global counter of open resources, decrement it in finalizers, and print the count. If finalizers run in unpredictable order, the count might differ at given points.
+  4. Concurrent Resource Use  
+     - Allocate resources from multiple threads, each logging. If finalizers from different threads run concurrently, the closure logs might interleave nondeterministically.
+  5. Check Partial Cleanup  
+     - End the program quickly after allocation. Sometimes finalizers may not run before termination, or run in an unexpected order. Print how many resources were successfully closed before exit.
+- |
+  Non-Deterministic Resource Cleanup.
+  Even in languages with RAII or deterministic destructors (like C++), bridging with managed environments or relying on background disposal tasks can create nondeterministic cleanup sequences. If code observes or logs these destructor calls, results may differ across runs.
+  Some of test propositions:
+  1. Hybrid RAII + GC  
+     - In a mixed environment (e.g., C++/CLI or some bridging library), create objects with both manual destructors and finalizers. Print logs in both. The interplay can lead to unpredictable sequences.
+  2. Delayed Cleanup  
+     - Insert an artificial delay in the destructor. Log the time it starts and finishes. The start times can differ across runs if triggered by nondeterministic events.
+  3. Shared Resource  
+     - Two objects hold references to a shared resource. One relies on GC finalizer, one uses RAII. Print logs when each attempts to release it. The order can vary each run, revealing races.
+  4. Explicit vs. Implicit Destruction  
+     - Alternate between explicit calls to `delete` (or Dispose) vs. waiting for a finalizer. Print the exact order of destruction messages. Variation in the finalizer approach can show nondeterministic timing.
+  5. Limited Execution Window  
+     - Make your entire test run in under 5 seconds and see which destructors get invoked in time. Across repeated runs, certain destructors might or might not appear in the stdout log, indicating nondeterminism.
+- |
+  Phantom References / Weak References.
+  In some runtimes (e.g., Java’s `PhantomReference`, `WeakReference` in .NET), objects become eligible for special reference queues once the GC decides they’re collectible. The exact timing or order in which references are cleared or enqueued can vary, affecting program flow if code depends on them.
+  Some of test propositions:
+  1. Weak Reference Queue Logging  
+     - Create many objects wrapped in weak references, store them, and then trigger GC. Print each reference that appears in the reference queue. If order differs across runs, that shows nondeterminism.
+  2. Phantom Reference Finalization  
+     - Use phantom references to track finalization. Log each object’s ID when it’s enqueued. Subtle differences in GC timing can reorder the enqueuing sequence.
+  3. Mixed Strong & Weak  
+     - Maintain some objects in both strong and weak references. Print when each object is freed (via the queue). Variation in release time or sequence indicates nondeterminism.
+  4. Concurrent Access  
+     - In multiple threads, create references and drop them. Print the ID of any object that hits the reference queue. If threads finalize objects differently, the queue order changes.
+  5. Stress with Large Data  
+     - Insert big objects behind weak/phantom references to force more frequent GC. Then check the reference queue. Higher allocation rates can cause the GC to behave in more varied ways each run.
+- |
+  Mixed RAII & GC.
+  In environments bridging RAII (C++-style deterministic destructors) with a managed runtime, the final cleanup order or time can be partly deterministic (RAII) and partly nondeterministic (GC). If the code depends on combining these patterns, you can get race conditions or unpredictable destructors.
+  Some of test propositions:
+  1. Native & Managed Object Lifecycle  
+     - Instantiate a native (RAII) object that holds a pointer to a managed object. Log when each destructor/finalizer runs. If the managed object also finalizes, you can see variable sequences.
+  2. Container of Mixed Objects  
+     - Maintain a container with both RAII-managed objects and purely GC-managed objects. Print logs on destruction/finalization. The GC portion may reorder finalization across runs.
+  3. Forced RAII Scope  
+     - Use a local scope in which an RAII object is destroyed at scope exit, while a GC-managed sibling object remains. Log both. The GC-managed object might finalize at a random future time.
+  4. Shared Resource Across Boundaries  
+     - Have a resource allocated in native code but stored in a managed wrapper. Log when each side tries to clean up. Variation in GC triggers can produce different orders.
+  5. Repeated Over Multiple Runs  
+     - Execute the test scenario multiple times. Compare the destructor/finalizer logs. If bridging is nondeterministic, the sequence or timing of cleanups will vary run to run.
+

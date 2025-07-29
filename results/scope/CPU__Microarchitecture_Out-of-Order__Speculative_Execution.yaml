@@ -1,0 +1,40 @@
+scope_name: 'CPU__Microarchitecture_Out-of-Order__Speculative_Execution'
+prompt: 'Analyze potential non-deterministic behavior within the CPU & Microarchitecture - Out-of-Order & Speculative Execution'
+subjects:
+- |
+  Speculative Execution.
+  Modern CPUs execute instructions speculatively, sometimes along paths that ultimately do not occur logically. Although the CPU “rolls back” the architectural state, microarchitectural side-effects (e.g., modified cache lines, buffers, or predictors) can differ across runs. Data-dependent speculation, varying prefetch heuristics, and microcode patches (for mitigations) can all introduce subtle timing or performance differences each time the program runs.
+  Some of test propositions:
+  1. Branch-Heavy Loop Timing Test  
+     - Execute a tight loop with heavily data-dependent branches, measuring per-iteration time. Print the average iteration time. Speculative differences across runs can cause slight timing variations.
+  
+  2. Side-Channel Timing Collector  
+     - Perform a flush+reload or similar cache-timing measurement after intentionally mispredicted branches. Print measured cache-access times. Variance in speculation side-effects will manifest as different timings in repeated runs.
+  
+  3. Varying Input Patterns  
+     - Run the same binary multiple times with slightly different input data sequences. Print how many nanoseconds or cycles specific critical sections take. Data-dependent speculation can yield different microarchitectural footprints.
+  
+  4. Repeated Microbenchmark with Different Start Offsets  
+     - Execute the same function repeatedly but shift the function’s alignment or call offset. Print total runtime. Variation in speculation warmup or prefetch can produce different timing results across runs.
+  
+  5. Conditional Data Load Test  
+     - Conditionally load a large data array based on a branch. Print how long this conditional block takes. Speculative execution might prefetch or partially execute the load differently across runs, revealing nondeterministic behavior.
+- |
+  Branch Prediction Variations.
+  Branch predictors rely on past execution patterns to guess future branch directions. Even small differences in the sequence of branches (during startup or due to slight input changes) can alter the predictor’s internal state. Misprediction costs, warmup phases, indirect branch prediction, and hardware-specific algorithms can result in run-to-run timing variability.
+  Some of test propositions:
+  1. Misprediction Counter  
+     - A loop with unpredictable or random branches records iteration times. Print average and worst-case iteration timing. Small shifts in how the branch predictor learns can cause observable differences across runs.
+  
+  2. Indirect Call Benchmark  
+     - Repeatedly call function pointers in a pseudo-random sequence. Print total execution time. Different training patterns for indirect branches lead to timing fluctuations across runs.
+  
+  3. Predictor Warmup vs. Steady State  
+     - Perform an initial “training” pass of branch-heavy code, then measure a second “steady-state” pass. Print timing for both phases. If warmup differs run-to-run, the final times will vary.
+  
+  4. Branch-Intensive Benchmark with Variation  
+     - Compile multiple slightly different versions (or toggling code paths) that shift the branch layout. Print a performance summary each time. Distinct runs may exhibit different prediction accuracy.
+  
+  5. Adaptation to Repeated Patterns  
+     - Alternate between known repeating branch patterns (e.g., TTTN… vs. TNTN…). Print how quickly mispredictions drop after each pattern change. Predictor adaptation can differ across runs, showing timing variability.
+

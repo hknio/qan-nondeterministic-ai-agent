@@ -1,0 +1,116 @@
+scope_name: 'Floating-Point__Numerical_Issues_Speculative_FP_State'
+prompt: 'Analyze potential non-deterministic behavior within the Floating-Point & Numerical Issues - Speculative FP State'
+subjects:
+- |
+  Speculative Execution.
+  Modern CPUs can speculatively execute instructions. While final results should usually be the same, if the code has race-like conditions or reads partially updated states, speculation can lead to subtle differences.
+  
+  
+  1. Summation Order Stress  
+     - Summation in a shared buffer while branches might speculatively run.  
+     - Print final sum to detect random partial updates.
+  2. Rounding Mode & Extended Precision Variation  
+     - If speculation changes rounding mode or the moment it’s applied, it might cause different rounding in rare cases.  
+     - Print intermediate sums.
+  3. Denormal & Underflow Detection  
+     - Speculative paths that operate on subnormals might or might not complete.  
+     - Print final values to see if any run shows unexpected results.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Code that speculates an SSE path vs. an x87 path.  
+     - Print final numeric differences if any.
+  5. Speculative & Timing-Sensitive Check  
+     - Intentionally measure the time in a branch that triggers speculation.  
+     - Print if speculation leads to a different path or partial result.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Summation in a shared buffer while branches might speculatively run.  
+     - Print final sum to detect random partial updates.
+  2. Rounding Mode & Extended Precision Variation  
+     - If speculation changes rounding mode or the moment it’s applied, it might cause different rounding in rare cases.  
+     - Print intermediate sums.
+  3. Denormal & Underflow Detection  
+     - Speculative paths that operate on subnormals might or might not complete.  
+     - Print final values to see if any run shows unexpected results.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Code that speculates an SSE path vs. an x87 path.  
+     - Print final numeric differences if any.
+  5. Speculative & Timing-Sensitive Check  
+     - Intentionally measure the time in a branch that triggers speculation.  
+     - Print if speculation leads to a different path or partial result.
+- |
+  Micro-Timing Reliant Code.
+  Any code that uses timing or performance counters as part of logic can vary from run to run. Small changes in timing (due to speculation or environment) can cause divergent branches and thus different floating outcomes.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - If a branch changes the summation order based on measured time, final sums may differ.  
+     - Print which path is taken.
+  2. Rounding Mode & Extended Precision Variation  
+     - Switch rounding modes only if an operation is “fast enough.”  
+     - Print final numeric results to see if they differ across runs.
+  3. Denormal & Underflow Detection  
+     - Use a timed loop that handles subnormals differently if “time remains.”  
+     - Print whether subnormal handling was triggered or skipped.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - If a micro-timing check picks SSE or x87.  
+     - Print final path and numeric outputs.
+  5. Speculative & Timing-Sensitive Check  
+     - This item is inherently about timing.  
+     - Print the final chosen logic each run to see if speculation changes timing.
+- |
+  Inconsistent Inlining or JIT Recompilation.
+  JIT engines (e.g., in Java, .NET, JS) can recompile methods differently across runs, changing inlining decisions or floating-point precision usage mid-execution.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Large loops that get hot might be recompiled.  
+     - Print partial sums before and after JIT recompilation if the runtime exposes such info.
+  2. Rounding Mode & Extended Precision Variation  
+     - Force a method that sets rounding modes to be inlined vs. not inlined.  
+     - Print results to see if the inlined version differs.
+  3. Denormal & Underflow Detection  
+     - Repeated calls to a function that might get JIT-optimized.  
+     - Print subnormal results to detect changes after recompilation.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - The JIT might switch from a scalar path to an SSE path upon recompilation.  
+     - Print final numeric values if it changes mid-run.
+  5. Speculative & Timing-Sensitive Check  
+     - If the JIT triggers reoptimization based on timing, the code path might switch.  
+     - Print logs or numeric results to detect the switchover.
+- |
+  Profile-Guided Optimization.
+  Some runtimes or compilers use profiling data from a previous run to optimize the next run differently, changing floating-point operation order or vectorization.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Repeatedly run a summation program that the compiler can profile.  
+     - Print final sums in each new run to see if the order changes.
+  2. Rounding Mode & Extended Precision Variation  
+     - Profile might lead the compiler to adopt a certain rounding approach.  
+     - Print intermediate results to detect changes after subsequent runs.
+  3. Denormal & Underflow Detection  
+     - If the profiler decides subnormals occur rarely, it might skip certain safe checks.  
+     - Print final results each run to see if an optimization breaks them.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - If profiling suggests SSE is faster, it might pick SSE in the next run.  
+     - Print final numeric differences.
+  5. Speculative & Timing-Sensitive Check  
+     - The profiler might see one path as faster.  
+     - Print which path is chosen after multiple runs to detect changes.
+- |
+  Different Optimization Levels.
+  If different builds or runtime states use O1/O2/O3/Ofast, the compiler might reorder floating operations or enable vectorization in inconsistent ways across runs.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Compare a program compiled with different optimization flags.  
+     - Print final sums.
+  2. Rounding Mode & Extended Precision Variation  
+     - At higher optimization, more aggressive inlining or register usage might shift rounding steps.  
+     - Print partial sums to see differences.
+  3. Denormal & Underflow Detection  
+     - Under high optimization, the compiler might transform loops that handle subnormals differently.  
+     - Print final values to detect variations.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Higher optimization could use SSE or FMA instructions.  
+     - Print final numeric results for each optimization level.
+  5. Speculative & Timing-Sensitive Check  
+     - Optimized code might reorder instructions more aggressively, changing timing or speculation outcomes.  
+     - Print final branch paths or sums each run.
+

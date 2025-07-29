@@ -1,0 +1,18 @@
+scope_name: 'Rare___Edge_Cases_Snapshot_Restore_or_Live_Migration'
+prompt: 'Analyze potential non-deterministic behavior within the Rare / Edge Cases - Snapshot/Restore or Live Migration'
+subjects:
+- |
+  State Divergence on Restore.
+  Snapshots may capture partial CPU or memory states. Restoring or migrating a VM can reset counters, duplicate RNG seeds, or disrupt I/O buffers, leading to divergences post-restore.
+  Some of test propositions:
+  - Checkpoint Comparison  
+    Periodically save internal program state, printing a hash. After a restore, compare the new hash to the previous one and print any mismatch.
+  - TSC Drift Logger  
+    Continuously measure and print Time Stamp Counter (TSC) deltas. On restore, a reset or jump in TSC indicates potential divergence.
+  - Random Seed Replay  
+    Use a PRNG with an internal seed and print a continuous sequence of outputs. If a snapshot is restored, the sequence might repeat, exposing nondeterminism.
+  - Network Buffer Half-Write  
+    Simulate sending data to the loopback interface and pause mid-write. After restore, print the status of the send buffer; mismatches indicate divergences.
+  - Cross-Host CPU Feature Checker  
+    Read and print CPU flags at start-up. If migrated to a host with different features (e.g., missing SSE), note any changes in printed feature sets or performance.
+

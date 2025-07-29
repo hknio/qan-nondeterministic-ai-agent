@@ -1,0 +1,32 @@
+scope_name: 'Rare___Edge_Cases_Cosmic_Rays__Hardware_Faults'
+prompt: 'Analyze potential non-deterministic behavior within the Rare / Edge Cases - Cosmic Rays & Hardware Faults'
+subjects:
+- |
+  Single-Event Upsets (SEUs).
+  Rare bit flips in memory or CPU registers/cache due to cosmic rays can change instructions or data at random, causing unpredictable results.
+  Some of test propositions:
+  - Repeated Summation Test  
+    Continuously sum a large array of integers and print the final sum each iteration. A bit flip could cause occasional, unexpected deviations.
+  - Iterative Hash Checker  
+    Repeatedly hash a random block of data (e.g., using SHA-256) and compare to a known reference output. Any mismatch suggests a possible bit flip.
+  - Fibonacci Stress  
+    Continuously compute Fibonacci numbers in a loop, verifying each result. Print anomalies to stdout if any sequence term is incorrect.
+  - Prime Sieve Validation  
+    Run a prime sieve (e.g., Sieve of Eratosthenes) with a known correct result. Print the count of found primes each time. Unexpected variation indicates potential memory corruption.
+  - Matrix Multiplication Check  
+    Multiply fixed matrices with a known correct result. Print any discrepancies compared to the expected output.
+- |
+  ECC Memory Corrections.
+  ECC memory can correct or log errors in ways that introduce sporadic delays or pauses. Deferred error reporting can also trigger errors at unpredictable times.
+  Some of test propositions:
+  - Synthetic ECC Error Injection Simulation  
+    Simulate ECC “alerts” by occasionally corrupting data blocks in memory and checking for corrections. Print whenever a correction is detected.
+  - High-Frequency Write/Read Loop  
+    Rapidly write random data to a large memory buffer, then read it back. Print any discrepancies to stdout.
+  - Interrupt Timing Logger  
+    Continuously measure time deltas between loops. Unusual pauses might correlate with ECC corrections or interrupts, which the program logs.
+  - Threshold-Based Error Buildup  
+    Maintain a large buffer and inject small corruptions. Print output when a simulated “ECC threshold” is reached, revealing deferred error reporting behavior.
+  - ECC Event Stress  
+    Generate heavy memory load (large allocations/frees). Log any unexpected slowdown or error pattern indicative of ECC corrections.
+

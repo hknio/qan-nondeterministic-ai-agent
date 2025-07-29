@@ -1,0 +1,37 @@
+scope_name: 'Time__Clocks_Timer_Interrupts__Alarms'
+prompt: 'Analyze potential non-deterministic behavior within the Time & Clocks - Timer Interrupts & Alarms'
+subjects:
+- |
+  Interrupt Timing.
+  Timer interrupts can arrive slightly differently across runs due to:
+  - Kernel scheduling jitter.
+  - Small variations in how the container is dispatched on the single CPU.
+  Some of test propositions:
+  - Idea 1: Use `setitimer()` to trigger a signal after a small interval (e.g., 1ms), then print a timestamp upon receipt. Repeat multiple times in a single run and compare intervals for variability.  
+  - Idea 2: Schedule multiple short intervals (e.g., re-arming the timer a few times) within the 5-second window. Print the measured gap between signals. If interrupt timing is inconsistent, these gaps vary.  
+  - Idea 3: Perform a quick busy loop while waiting for a timer interrupt. Print the exact instruction count or TSC when the interrupt arrives. Compare across runs to see if the interrupt hits at random instruction boundaries.  
+  - Idea 4: Gather the min and max times between interrupt deliveries in a 5-second test. Check if the range changes drastically between multiple container launches.  
+  - Idea 5: If possible, read `clock_gettime(CLOCK_MONOTONIC)` inside the signal handler. Print the difference from the previous interrupt to see if intervals remain stable or show random jitter run-to-run.
+- |
+  setitimer / Alarms.
+  Signals triggered by `setitimer()` or `alarm()` can arrive at slightly different points in execution if:
+  - The kernel or hypervisor scheduling is not perfectly deterministic.
+  - Microsecond-granularity timers are subject to overhead or context-switch delays.
+  Some of test propositions:
+  - Idea 1: Set an alarm to fire after ~1ms, then upon receiving the signal, print a timestamp. Immediately reset the alarm for another 1ms, repeat several times. Compare the intervals.  
+  - Idea 2: Alternate short sleeps (e.g., `usleep(1000)`) with setting an alarm. Capture the time the alarm arrives vs. when scheduled. If scheduling is inconsistent, some alarms might fire later or earlier than expected.  
+  - Idea 3: Use a single alarm for ~2ms in a loop. Print the difference between the requested time and the actual signal arrival time. Track if the difference changes across runs on different servers.  
+  - Idea 4: Start the container, immediately set an alarm for 4 seconds. In parallel, do a quick busy loop. Compare how close the alarm triggers to the 4-second mark across multiple runs.  
+  - Idea 5: In one short run, set multiple alarms (e.g., one at 1s, another at 2s, another at 3s) while staying under 5 seconds total. Log the exact sequence and timing of signals. Variations in the order or timing can indicate non-deterministic scheduling.
+- |
+  timerfd, clock_nanosleep, timer_create.
+  Asynchronous timer APIs or sleeps can resume execution at slightly varied times because:
+  - The underlying kernel timers might fire with subtle delays.
+  - Scheduling decisions can introduce jitter in when the process is unblocked.
+  Some of test propositions:
+  - Idea 1: Create a `timerfd` set to expire after 1ms. In a loop, wait for expiration, record the actual time, and re-arm it. Log intervals across multiple runs.  
+  - Idea 2: Call `clock_nanosleep(CLOCK_MONOTONIC, 0, &req, NULL)` with very short durations (e.g., 500 microseconds) multiple times. Print the real time before and after each call. Compare distributions across runs.  
+  - Idea 3: Use `timer_create()` to schedule a quick single-shot timer that signals your process after ~2ms. Print both the scheduled time and the actual arrival time. Repeat several times in one run.  
+  - Idea 4: Set two `timerfd`s at slightly different intervals (e.g., 1ms and 2ms). Block on both in sequence and print the arrival order. If scheduling is variable, the order might occasionally swap across repeated tests.  
+  - Idea 5: Combine a short busy loop with a single `timerfd` read. If the CPU is fully occupied, the timer read might be delayed. Log these delays across multiple runs to see if they vary unpredictably.
+

@@ -1,0 +1,32 @@
+scope_name: 'Concurrency__Scheduling_Background_Helper_Threads'
+prompt: 'Analyze potential non-deterministic behavior within the Concurrency & Scheduling - Background “Helper” Threads'
+subjects:
+- |
+  Runtime / System Helpers.
+  Many language runtimes (e.g., Go, Java, .NET) launch helper threads for garbage collection, JIT compilation, or thread pooling. These threads compete for CPU time and can trigger unpredictably, affecting the main program’s performance and timing.
+  Some of test propositions:
+  - Forced GC Scenario  
+    Allocate a large number of objects quickly. Print timestamps when the GC starts/ends. Across runs, GC may happen at different times, exposing non-deterministic scheduling.  
+  - Concurrent JIT Warmup  
+    Call a function repeatedly to trigger JIT compilation. Log performance times or state changes. Differences in when code is compiled across runs highlight background thread effects.  
+  - Thread Pool Race  
+    Submit multiple tasks to a thread pool. Each prints “I started” and “I finished.” Compare the start/finish order across runs for nondeterminism.  
+  - Background vs. Foreground Priority  
+    The main thread logs how many iterations it completes per second. A background thread (GC or runtime) triggers unpredictably. Shifts in the main thread’s iteration rate show scheduling changes.  
+  - Large Allocation Delays  
+    Occasionally allocate large chunks of memory while the main thread prints progress in tight intervals. If the GC triggers unpredictably, progress logs will reveal random stalls or slowdowns.
+- |
+  Container/OS-Level Watchdog Threads.
+  Even minimal Alpine-based containers can have small watchdog or housekeeping threads (e.g., for logging or system checks). gVisor itself may use background threads for syscall interception. These tasks can momentarily preempt or interrupt user processes in ways that vary each run.
+  Some of test propositions:
+  - Idle Monitoring  
+    A main loop periodically prints how many iterations it completed in one second. Occasional dips or spikes in that count indicate a watchdog or housekeeping thread interrupt.  
+  - Simulated System Load  
+    One part of the program generates artificial load while the main thread logs iteration speed or timestamps. If a container-level thread runs housekeeping at different times across runs, you’ll see random performance dips.  
+  - File System Check  
+    Repeatedly write/read small files in `/tmp` and log how long each operation takes. If the container clears `/tmp` or locks it, the main thread might see inconsistent delays.  
+  - Observing Processes (if available)  
+    Occasionally run a simple `ps` (BusyBox version) and log any system processes seen. Changes in the presence/behavior of minimal system threads show nondeterministic housekeeping intervals.  
+  - Intermittent Container Service  
+    Start a small background script that logs “alive.” If a container-level watchdog restarts or pauses that service at unpredictable intervals, the main log will show random gaps in “alive” messages.
+

@@ -1,0 +1,22 @@
+scope_name: 'Network__External_I_O_Ephemeral_Ports'
+prompt: 'Analyze potential non-deterministic behavior within the Network & External I/O - Ephemeral Ports'
+subjects:
+- |
+  Port Number Assignment.
+  - Random ephemeral port selection: Binding to port 0 yields unpredictable ports from a range.  
+  - Collision & retries: If one ephemeral port is taken, the OS picks another.  
+  - Concurrency: Multiple simultaneous binds can lead to race conditions in port assignment.  
+  - Kernel/OS differences: Port selection algorithms vary by kernel version.  
+  - NAT/container layers: Additional network mapping in containers can introduce further unpredictability.
+  Some of test propositions:
+  1. Concurrent Ephemeral Binds  
+     - Rapidly spawn multiple threads binding to port 0, print assigned ports. Compare across runs for differences in distribution.  
+  2. Sequential Binds  
+     - Bind and close a socket repeatedly in a loop, printing each new port. Look for patterns or randomization that changes across runs.  
+  3. Collision Simulation  
+     - Intentionally open a specific ephemeral port, then attempt to bind repeatedly to port 0 in another process, printing fallback ports. Variation indicates nondeterminism.  
+  4. Binding in Quick Succession  
+     - Bind/close sockets as fast as possible, print the ephemeral ports used. Freed ports might or might not be reused immediately in different runs.  
+  5. Network Namespace Check  
+     - If the container environment supports lightweight namespaces, create a new namespace and bind ephemeral ports inside it, printing results. Compare across multiple runs to see if the range or allocation differs.
+

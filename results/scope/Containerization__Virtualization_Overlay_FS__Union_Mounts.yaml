@@ -1,0 +1,32 @@
+scope_name: 'Containerization__Virtualization_Overlay_FS__Union_Mounts'
+prompt: 'Analyze potential non-deterministic behavior within the Containerization & Virtualization - Overlay FS & Union Mounts'
+subjects:
+- |
+  Copy-on-Write Delays.
+  Overlay/union filesystems often keep files read-only in a lower layer until a first write triggers copy-up to an upper layer. The exact moment of copy-up can shift depending on kernel version, write patterns, or concurrency, causing timing differences.
+  Some of test propositions:
+  - First Write Timing  
+    Opens a read-only file from the lower layer, then immediately writes. Logs timestamps before/after writing. Variation in when the copy-up completes manifests in different timing outputs.
+  - Repeated Small Writes  
+    Writes small increments to a lower-layer file in a loop, printing the iteration at which the copy-up is detected (e.g., first successful write). Different iteration points in repeated runs highlight timing variance.
+  - File Access Race  
+    Two processes attempt to write the same lower-layer file simultaneously and log when they detect copy-up. Different run outcomes suggest variable ordering of copy-up triggers.
+  - File Metadata Checker  
+    Immediately after writing, retrieves file metadata (e.g., `stat`) and prints ctime/mtime. If these timestamps differ across repeated runs, it indicates unpredictability in copy-up or metadata updates.
+  - Directory Tree Copy-Up  
+    Modifies multiple files in a lower-layer directory at once (creating, renaming). Prints which operations trigger copy-up. Differences in the operation sequence or timing across runs reveal nondeterministic copy-up behavior.
+- |
+  Read/Write Overlays.
+  Overlay strategies can reorder or batch writes to optimize performance. They may delay updates or metadata changes, causing nondeterministic read results or timestamps if multiple processes read/write simultaneously.
+  Some of test propositions:
+  - Batched Write Detector  
+    Creates many small files in quick succession and then reads them back randomly, logging read times. Inconsistent I/O times or partial writes across runs suggest batching or reordering.
+  - Overlay Sync Stress  
+    Writes data and calls `fsync()` or `syncfs()` repeatedly, measuring how long each sync takes. Irregular or sporadic sync durations across runs indicate overlay’s internal scheduling.
+  - Concurrent Readers/Writers  
+    One process continuously appends data to a file while another reads it in a loop, logging the version or length of what’s read. Inconsistent final outputs highlight reordering or delayed write propagation.
+  - Metadata Race  
+    Repeatedly changes ownership or permissions on files while another process checks them. Logs any observed mismatch. Overlays can merge or delay these updates differently each run.
+  - List Directory Consistency  
+    Renames or deletes files in a directory repeatedly while simultaneously listing that directory. Variation in the filenames (or missing entries) across runs shows nondeterministic overlay updates.
+

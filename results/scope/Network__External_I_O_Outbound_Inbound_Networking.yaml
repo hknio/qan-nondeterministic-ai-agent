@@ -1,0 +1,42 @@
+scope_name: 'Network__External_I_O_Outbound_Inbound_Networking'
+prompt: 'Analyze potential non-deterministic behavior within the Network & External I/O - Outbound/Inbound Networking'
+subjects:
+- |
+  Remote Calls.
+  - External servers often provide changing responses over time or based on load (e.g., dynamic content, timestamps, updated JSON fields).  
+  - Network latency can vary run to run, potentially causing timeouts or delays.  
+  - Routing and connectivity issues can lead to different outcomes (e.g., retries, partial data).  
+  - TLS/SSL handshakes use ephemeral keys or different cipher suites across sessions.  
+  - Load-balancing or server-side sharding means different backends may respond differently.  
+  - API rate limits or throttling can cause failures on some runs if rate is exceeded.  
+  - HTTP/2 or gRPC multiplexing can reorder responses under high concurrency.
+  Some of test propositions:
+  1. Fetch Constant Resource  
+     - Make a simple HTTP request to a known external site (e.g., `http://example.com`) and print the exact response body. Compare outputs across multiple runs to detect changes.  
+  2. Parallel Requests  
+     - Spawn multiple concurrent requests to an external API and print the responses in the order received. Look for reordered or missing data.  
+  3. TLS Handshake Inspection  
+     - Connect to an HTTPS site, capture details (like negotiated cipher suite) and print to stdout. Look for any variations across runs.  
+  4. Load-Balanced Endpoint  
+     - Query a domain known to have multiple backend servers (e.g., a round-robin DNS or a CDN), then print which server responded. Compare differences.  
+  5. Rate Limit Stress  
+     - Repeatedly call an API known to have rate limits, printing status (success/failure). If the API response changes unpredictably (throttled vs. allowed), nondeterminism is confirmed.
+- |
+  Localhost / Loopback.
+  - Ephemeral port usage: Binding to `localhost` on port 0 yields a random port.  
+  - Message ordering: Even on loopback, small timing differences can reorder packets.  
+  - Concurrency: Other local processes or threads might temporarily occupy ports.  
+  - Buffer states: The kernel’s TCP/UNIX socket buffers can affect read/write interleavings.  
+  - Local DNS / IPv6 fallback: Resolving “localhost” can differ between IPv4 and IPv6, or involve local DNS variations.
+  Some of test propositions:
+  1. Single Ephemeral Bind  
+     - Bind a TCP socket to `127.0.0.1` with port=0, then print the assigned port. Compare across runs.  
+  2. Parallel Socket Creation  
+     - Launch multiple threads each binding to `localhost:0`, print assigned ports, and compare. Check for collisions or varying port ranges.  
+  3. Loopback Packet Ordering  
+     - Create a client and server on `localhost`, send many small messages in quick succession, and print the order received. Look for reorderings.  
+  4. Local DNS vs. IPv6  
+     - Attempt connecting to “localhost” and “::1” in sequence, print which succeeded. If IPv6 vs. IPv4 fallback changes, that’s nondeterministic.  
+  5. Socket Buffer Stress  
+     - Send large bursts of data at once from client to server on `localhost`, then print how many bytes were read in the first read call. Buffer dynamics can vary run to run.
+

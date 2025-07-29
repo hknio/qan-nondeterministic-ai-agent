@@ -1,0 +1,32 @@
+scope_name: 'Filesystem__Environment_Container_Sysctls__Sysfs'
+prompt: 'Analyze potential non-deterministic behavior within the Filesystem & Environment - Container Sysctls & Sysfs'
+subjects:
+- |
+  Host-Level Sysctls.
+  Sysctl values (e.g., `vm.overcommit_memory`, `net.core.somaxconn`, `kernel.randomize_va_space`) can differ among hosts. These values can influence memory allocation patterns, security behaviors like ASLR, or network buffering logic.
+  Some of test propositions:
+  1. Sysctl & Sysfs Probe  
+     - Print the values of key sysctls (e.g., `/proc/sys/vm/swappiness`, `/proc/sys/kernel/randomize_va_space`). Compare across runs.  
+  2. Memory Stress Check  
+     - Attempt to allocate large arrays quickly (within the 1GB limit) to see if behavior differs (e.g., early OOM or varying performance) across hosts.  
+  3. ASLR Check  
+     - Run a small program that prints the address of a local variable. Compare addresses across runs/hosts to see if ASLR is consistent or disabled.  
+  4. Network Buffer Sizes  
+     - Even if network is limited, read `net/core/rmem_default` or `net/ipv4/tcp_rmem` from `/proc/sys/`. Check if they match across hosts.  
+  5. Scheduler Behavior  
+     - Trigger a simple CPU-bound loop and measure timeslice differences. If `kernel.sched_*` sysctls differ, you might see slight divergences in how quickly the loop completes.
+- |
+  Out-of-Tree Kernel Modules.
+  Hosts might load custom or out-of-tree kernel modules (or eBPF programs) that intercept syscalls, implement unusual filesystems, or alter resource usage in ways that are not apparent inside the container. This can lead to unpredictable differences in timing or behavior.
+  Some of test propositions:
+  1. Loaded Modules Check  
+     - Read `/proc/modules` (if accessible) and print the list of loaded modules. Compare across runs/hosts.  
+  2. eBPF Inspection  
+     - If `/sys/kernel/debug/tracing` or `/sys/fs/bpf` is readable, list any attached eBPF programs. Differences may indicate custom host logic.  
+  3. Filesystem Quirk Check  
+     - Attempt simple operations (create, read, write, delete) on different mount points (`/tmp`, `/`), measure success/time. A custom module might behave differently.  
+  4. Syscall Interception Test  
+     - Repeatedly call certain syscalls (e.g., `gettimeofday`, `stat`) in a tight loop and measure if any overhead or anomalies appear. A module might inject latency or alter results.  
+  5. Resource-Limiting Hook  
+     - Attempt to use as much CPU as possible for a short test. Print how long it took. If an out-of-tree module imposes extra throttling or cgroup constraints, times may vary across hosts.
+

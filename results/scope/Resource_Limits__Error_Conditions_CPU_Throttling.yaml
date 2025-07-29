@@ -1,0 +1,18 @@
+scope_name: 'Resource_Limits__Error_Conditions_CPU_Throttling'
+prompt: 'Analyze potential non-deterministic behavior within the Resource Limits & Error Conditions - CPU Throttling'
+subjects:
+- |
+  cgroups / CPU Quota.
+  Although only one vCPU is available, the underlying scheduler might throttle or pause the container at varying intervals. Small timing differences in code paths can change when throttling occurs. Signal handling, multi-threaded concurrency, or I/O can make the final execution timeline diverge across runs, even if everything else starts identically.
+  Some of test propositions:
+  - High-Load Thread + Sleeper  
+    The main thread does CPU-intensive calculations while a “sleeper” thread logs timestamps. Throttling can shift timestamp intervals, differing across runs.
+  - Time-Based Loop  
+    Loop until a certain CPU-based counter is reached, logging each iteration. Throttling can cause runs to exit with different iteration counts in the 5-second window.
+  - Mixed I/O + CPU  
+    Alternate between heavy CPU computation and short disk/network I/O, logging completion of each step. Throttling may cause fewer or more steps to complete across runs.
+  - Signal Flood  
+    One thread sends signals (like `SIGUSR1`) at intervals to a busy main thread. Log each handled signal. If the main thread is throttled, signal-handling order or counts may differ.
+  - Priority Inversion Simulation  
+    Two threads with different priorities: one CPU-bound, one for quick tasks, each logging progress. Under cgroup throttling, their iteration counts can diverge run to run.
+

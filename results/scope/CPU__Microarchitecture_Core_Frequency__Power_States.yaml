@@ -1,0 +1,40 @@
+scope_name: 'CPU__Microarchitecture_Core_Frequency__Power_States'
+prompt: 'Analyze potential non-deterministic behavior within the CPU & Microarchitecture - Core Frequency & Power States'
+subjects:
+- |
+  CPU Frequency Scaling.
+  Modern CPUs adjust their frequency based on load, thermal limits, and power policies. Even if only one core is exposed to the container, the host may scale the frequency up or down at different moments. Brief tasks might run at a lower frequency if the CPU has not yet boosted, introducing timing variability.
+  Some of test propositions:
+  1. Cycle Counting at Different Intervals  
+     - Repeatedly perform a known computation (e.g., a fixed loop) and measure how many cycles or nanoseconds it takes. Print the total time per attempt. Frequency scaling can cause run-to-run drift.
+  
+  2. Burst Load vs. Sustained Load  
+     - Compare a short, intense CPU load (1 second) to a longer load (4–5 seconds). Print average operations per second. If frequency scaling ramps up differently, the short test can vary more across runs.
+  
+  3. Very Short vs. Long-Running Tasks  
+     - Run a microbenchmark that completes almost instantly (e.g., <50 ms) and another that uses the full 5-second allotment. Print performance measures. The short task may not always reach higher frequencies, causing nondeterminism.
+  
+  4. Frequent Sleep-Wake Patterns  
+     - Alternate small compute bursts with sleeps or yields. Print the time taken for each compute burst. Variation in how the CPU exits low-power states can lead to different performance run to run.
+  
+  5. High CPU Usage vs. Idle Baseline  
+     - Before each measurement, either idle or run a dummy busy loop. Then measure how quickly the test can complete. If the CPU is already boosted or not, results differ across runs.
+- |
+  Thermal Throttling.
+  As the CPU heats up, it may reduce its clock rate to stay within thermal limits. The moment throttling engages can differ from run to run if the physical CPU is warmer or cooler at the test start, or if fan/cooling behavior on the host changes subtly.
+  Some of test propositions:
+  1. Long Duration Stress  
+     - Run a heavy CPU-bound workload for nearly the entire 5-second limit. Print how many operations completed. If throttling kicks in at different times, the final count will vary across runs.
+  
+  2. Temperature Ramp Profiling  
+     - Periodically measure performance (e.g., every 0.5s) during a continuous CPU load. Print the operations done in each interval. If thermal conditions differ, the performance curve changes across runs.
+  
+  3. Cool vs. Heated Start  
+     - Compare results when the machine has been idle vs. after a previous intensive run. Print final operations completed or total time. A warmer CPU is more likely to throttle sooner.
+  
+  4. Intermittent High Load with Pauses  
+     - Alternate a short stress test with a brief pause. Print performance in each stress segment. Different cooling or thermal buildup across runs can produce varying slowdown patterns.
+  
+  5. Comparing Different Physical Machines  
+     - Run the same container-based test on multiple servers. Print final performance metrics. Distinct cooling solutions or baseline temperatures lead to nondeterminism across different hosts.
+

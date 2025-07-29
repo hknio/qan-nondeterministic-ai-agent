@@ -1,0 +1,46 @@
+scope_name: 'Filesystem__Environment_Filesystem_Consistency__Caching'
+prompt: 'Analyze potential non-deterministic behavior within the Filesystem & Environment - Filesystem Consistency & Caching'
+subjects:
+- |
+  Root Image Variations.
+  Differences in the container’s base image or how it is layered (OverlayFS, union FS, etc.) can lead to variations in shared library versions, package metadata, and file timestamps. Even slight discrepancies (like mismatched ctime or subtly different library defaults) can cause programs to behave differently across hosts.
+  Some of test propositions:
+  1. Filesystem Integrity & Listing Test  
+     - Recursively list and hash all files in a known system directory (e.g., `/usr/bin`). Compare these hashes across multiple runs/machines to see if any binaries or metadata differ.  
+  2. Package / Library Version Dumper  
+     - Invoke commands (like `ldd` or a simple script to parse `/usr/lib`) to print out library versions and compare across runs.  
+  3. Symlink & Metadata Consistency  
+     - Scan for symbolic links, print target paths, inodes, ctime, and ownership. Check if outputs vary across validators.  
+  4. Binary Checksum Comparison  
+     - Compute checksums (e.g., SHA256) of key executables (`/bin/sh`, `/bin/busybox`, etc.). Differences in the resulting digests indicate root image mismatch.  
+  5. Environment & Locale Dumper (Focused on root image impacts)  
+     - While this is primarily for env vars, also confirm that system locales (in `/usr/share/locale`) exist and match across runs. Any missing or extra locale files might reveal image variations.
+- |
+  Directory Listing Order.
+  The order returned by `readdir()` is not guaranteed to be stable and can vary based on filesystem implementation details, caching, or background processes that modify directory entries. This can lead to non-deterministic results if a program depends on the listing sequence.
+  Some of test propositions:
+  1. Repeated Directory Walk  
+     - In a script, repeatedly call `readdir()` on the same directory (e.g., `/tmp` or `/usr/bin`) in quick succession, printing out the sequence of filenames each time. Compare sequences across runs.  
+  2. Listing with Different Methods  
+     - Compare output from `ls -U` (no sorting) vs. manual `readdir()` calls to see if the unsorted order changes from run to run.  
+  3. Creation/Deletion Timing  
+     - Create then delete a small temp file in `/tmp` before listing. Do this multiple times to see if ephemeral changes shift listing order.  
+  4. Directory Hash Check  
+     - Convert the order of filenames into a single string, compute a hash (e.g., MD5), and compare across runs.  
+  5. Locale-Influenced Listing  
+     - Temporarily set `LANG` or `LC_COLLATE` to different values, list a directory with filenames that have special characters, and see if the listing order changes across runs or servers.
+- |
+  Caches & Readahead.
+  Caching behavior (page cache, I/O scheduling, readahead) can differ between runs and hosts. If a file is cached in memory, access time may drop drastically, which might affect code paths depending on timing or partial reads.
+  Some of test propositions:
+  1. I/O & Caching Timing Test  
+     - Read a moderately large file in small blocks, print read duration and partial checksums. Immediately repeat and compare times to detect caching differences.  
+  2. Sequential vs. Random Access  
+     - Generate random read offsets in a file, measure access times for each offset. Compare across runs to see if readahead patterns vary.  
+  3. Repeated Access Cycle  
+     - Access the same file multiple times in quick succession. Print out whether the data returned changes or whether the read times are noticeably different.  
+  4. Write-Then-Read  
+     - If allowed, create a file, write random data, then immediately read it. Check if read times or partial reads differ across runs.  
+  5. Evict Cache Simulation  
+     - Use a small script that reads enough dummy data to (attempt to) flush caches, then measure read times on the target file again. Compare across runs to detect differences in how the host kernel handles caching under memory pressure.
+

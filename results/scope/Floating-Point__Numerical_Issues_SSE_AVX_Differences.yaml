@@ -1,0 +1,80 @@
+scope_name: 'Floating-Point__Numerical_Issues_SSE_AVX_Differences'
+prompt: 'Analyze potential non-deterministic behavior within the Floating-Point & Numerical Issues - SSE/AVX Differences'
+subjects:
+- |
+  Instruction Set Variants (SSE, AVX, FMA, etc.).
+  Depending on CPU flags, JIT heuristics, or compiler detection, code might use SSE, AVX, or FMA instructions. Each can have slightly different rounding rules or intermediate precisions.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Compile the same summation routine under different instruction sets if possible.  
+     - Print final sums to see if auto-detection picks different paths at runtime.
+  2. Rounding Mode & Extended Precision Variation  
+     - Switch between SSE-based math and a fallback x87 approach.  
+     - Print intermediate steps to spot rounding differences.
+  3. Denormal & Underflow Detection  
+     - Use subnormal calculations in SSE vs. FMA code.  
+     - Print final results to see if different instructions flush differently.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Explicitly compare SSE with FMA.  
+     - Print final floating results side by side.
+  5. Speculative & Timing-Sensitive Check  
+     - Insert timing checks around SSE/AVX calls.  
+     - Print branch outcomes if timing triggers different code paths.
+- |
+  Vector vs. Scalar Operations.
+  Auto-vectorization can group multiple operations together, changing the rounding sequence compared to scalar code. Different runs or compilers may choose different paths.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - In a loop that sums many floats, enable auto-vectorization vs. a forced scalar path.  
+     - Print differences in results.
+  2. Rounding Mode & Extended Precision Variation  
+     - Vector operations might use SSE registers, scalar might use x87.  
+     - Print intermediate steps to see rounding changes.
+  3. Denormal & Underflow Detection  
+     - Evaluate subnormal-friendly code in both vectorized and scalar forms.  
+     - Print final results, comparing flush or underflow differences.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Vector path uses SSE/AVX, scalar path uses x87 double precision.  
+     - Print final computations to see if they match.
+  5. Speculative & Timing-Sensitive Check  
+     - Use a micro-timing test around vector vs. scalar loops.  
+     - Print which path is taken if a time-based condition picks the “faster” path unpredictably.
+- |
+  Partial Register Usage.
+  Mixing AVX, SSE, and x87 in the same code can cause partial register states or double rounding. Inconsistent usage from run to run could produce slight numeric differences.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Deliberately combine SSE calls with x87 calls in a summation routine.  
+     - Print final result to spot rounding anomalies.
+  2. Rounding Mode & Extended Precision Variation  
+     - Force segments of code to store partial results to memory.  
+     - Print results after each segment to see differences in precision.
+  3. Denormal & Underflow Detection  
+     - Use partial registers for tiny floats.  
+     - Print intermediate steps to see if partial usage flushes or changes results.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Switch instructions mid-computation (SSE -> x87 -> SSE).  
+     - Print final outcome to detect double rounding.
+  5. Speculative & Timing-Sensitive Check  
+     - Insert time-based condition on whether to use SSE or x87.  
+     - Print final numeric outputs to see if speculation changes which instructions run.
+- |
+  Hardware Differences in Microcode.
+  Even on nominally the same instruction set, microcode or CPU revisions can handle corner cases differently (especially around denormals, rounding, or FP exceptions).
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Summation of large sets across multiple servers (with potentially different CPU microcode levels).  
+     - Compare final sums for anomalies.
+  2. Rounding Mode & Extended Precision Variation  
+     - Repeatedly switch rounding modes.  
+     - Print final results to see if one machine yields a slightly different rounding pattern.
+  3. Denormal & Underflow Detection  
+     - Multiply or divide near subnormal range.  
+     - Print iteration at which the result changes from subnormal to zero on different machines.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Perform a known corner-case expression that historically had microcode differences.  
+     - Print final results across different servers.
+  5. Speculative & Timing-Sensitive Check  
+     - Use a tight loop that times certain instructions.  
+     - Print measured times/outputs to see if speculation or microcode leads to different results.
+

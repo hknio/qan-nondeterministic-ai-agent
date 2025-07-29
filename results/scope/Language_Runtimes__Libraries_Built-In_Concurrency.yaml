@@ -1,0 +1,78 @@
+scope_name: 'Language_Runtimes__Libraries_Built-In_Concurrency'
+prompt: 'Analyze potential non-deterministic behavior within the Language Runtimes & Libraries - Built-In Concurrency'
+subjects:
+- |
+  Background Threads.
+  
+  Some of test propositions:
+- |
+  Language VM or Library Threads.
+  Even when pinned to a single CPU, many language runtimes spawn internal threads (for I/O, GC, or scheduling). The OS can switch execution among threads in ways that slightly vary each run, causing race conditions or different execution order if code depends on these internal threads.
+  Some of test propositions:
+  1. Thread Creation Log  
+     - Write a program that enumerates active threads, printing their names or IDs at startup and periodically during execution. Compare how many threads appear or when they first appear across runs.
+  2. Periodic Heartbeat  
+     - Create a main loop that prints a timestamp. Meanwhile, background threads also print messages. Differences in interleaving might produce inconsistent message sequences.
+  3. Synchronized vs. Unsynchronized  
+     - Deliberately remove synchronization around shared data in a small experiment. Each thread prints the data it reads. If it changes across runs, you’ve shown nondeterminism from background thread scheduling.
+  4. I/O Trigger  
+     - Perform a small I/O operation that triggers an internal library thread (e.g., asynchronous file read). Print logs before and after the I/O. If that thread behaves differently across runs, the logs may differ.
+  5. Observe GC/Finalizer Thread  
+     - Force object allocations so that a GC thread or finalizer thread starts. Print messages upon allocation or finalization. The timing or concurrency with the main thread can vary each run.
+- |
+  Thread Pool Behavior.
+  Language-provided thread pools often expand or shrink based on perceived load. Even with a single CPU, the pool might adjust in ways that lead to tasks being scheduled at different times across runs.
+  Some of test propositions:
+  1. Task Submission Logging  
+     - Continuously submit tasks to the thread pool, each logging start and finish times. Compare how many tasks run concurrently and in what order across runs.
+  2. Load Spike  
+     - Suddenly submit a large batch of tasks and watch how the pool size changes (if you can query it). Print the pool size or number of active threads. Differences in expansion timing can appear.
+  3. Interleaved Short/Long Tasks  
+     - Submit a mix of quick (1-2ms) and somewhat longer tasks (100-200ms). Print the order in which tasks complete. The thread pool’s scheduling can produce different completions each run.
+  4. Varying Sleep  
+     - Insert random sleeps in tasks. Print a log in each task. This might cause the thread pool’s internal heuristics to scale up or down differently each run.
+  5. Repeated Run Comparison  
+     - Re-run the same pool-based workload multiple times. If the pool caches threads differently or re-initializes in new ways, the final log ordering or timing might differ.
+- |
+  Timer/Heartbeat Threads.
+  Many runtime libraries spawn threads to handle timers or scheduling tasks at intervals. Slight differences in when these threads awaken or how they interleave with the main code can lead to inconsistent event ordering or timing-based behavior.
+  Some of test propositions:
+  1. Scheduled Task Logging  
+     - Use a language timer or scheduled executor to run a task every 100ms. Print timestamps in each scheduled task. Compare if the tasks drift or align differently across repeated runs.
+  2. Multiple Timers  
+     - Start two timers, each printing a label. If their triggers interleave differently across runs, you’ll see different sequences in the print logs.
+  3. Load + Timer Combo  
+     - Add CPU or memory load while having a heartbeat timer. Print how frequently the heartbeat runs. Scheduling differences might cause missed or delayed beats in some runs, revealing nondeterminism.
+  4. Timer Cancel & Reschedule  
+     - Randomly cancel and reschedule timer tasks. Log the actual times tasks execute. The concurrency of timer threads can produce different final scheduling patterns each run.
+  5. Compare Timer Frequencies  
+     - Attempt different timer intervals (e.g., 10ms vs. 100ms). Print the exact times tasks run. Even small differences in overhead can cause task drift across repeated runs.
+- |
+  Async I/O Completion.
+  Asynchronous I/O operations often rely on callback threads or event loops. Even with a single CPU, the OS might signal readiness at slightly different times. The scheduling of callbacks can then create nondeterministic ordering in the program flow.
+  Some of test propositions:
+  1. Async Read/Write  
+     - Perform asynchronous file or network reads/writes, then log callback invocation times. Compare the sequence or timing across runs to detect any drift or reordering.
+  2. Small vs. Large Data  
+     - Use a small data buffer vs. a larger one, printing the exact time the async callback completes. The OS might handle them differently, leading to schedule variations.
+  3. Multiple Concurrent Async Calls  
+     - Launch multiple async I/O operations simultaneously. Print the order in which each callback is invoked. If scheduling changes across runs, you’ll see different callback orders.
+  4. Staggered Start  
+     - Start each async call a few milliseconds apart and print the callback completion time. Sometimes the OS might reorder completions depending on internal buffers.
+  5. Event Loop Monitoring  
+     - If the runtime has an event loop, print an event queue “tick” or poll iteration count. Variation in how the loop processes events can lead to nondeterminism.
+- |
+  Unpredictable Context Switches.
+  Even on a single CPU core, threads are time-sliced. The exact point of a context switch depends on OS scheduler policies, which can vary from run to run, leading to possible race conditions or different timings.
+  Some of test propositions:
+  1. Unsynchronized Counter  
+     - Have multiple threads increment a shared counter without synchronization, each printing intermediate values. Different context switch timing can produce different final or intermediate values.
+  2. Rapid Voluntary Yields  
+     - Explicitly call a “yield” or small sleep in threads. Print logs before/after yields. The resulting scheduling can differ in how threads interleave logs.
+  3. Lock Contention  
+     - Force multiple threads to compete for the same lock. Print the order in which they obtain it. If context switching is nondeterministic, that order can differ each run.
+  4. CPU-Bound Race  
+     - Create multiple tasks that do CPU-bound calculations and occasionally print partial results. The partial results might interleave differently across runs depending on switch points.
+  5. Monitor Thread Preemption  
+     - Attempt to measure or log how often a thread is preempted during certain loops. Even if approximate, differences in logs show how the OS scheduler might behave nondeterministically.
+

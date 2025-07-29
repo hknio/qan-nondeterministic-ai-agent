@@ -1,0 +1,32 @@
+scope_name: 'Memory_Layout__Access_Transparent_Huge_Pages_THP'
+prompt: 'Analyze potential non-deterministic behavior within the Memory Layout & Access - Transparent Huge Pages (THP)'
+subjects:
+- |
+  Automatic Page Promotion.
+  Linux can consolidate multiple 4 KB pages into a single 2 MB huge page depending on memory usage and access patterns. This can occur at unpredictable times, influencing performance or timing.
+  Some of test propositions:
+  - Memory Access Pattern Test  
+    Allocate a large array (~100 MB), walk it sequentially, and print performance/timing. Variation suggests sporadic huge page promotions.
+  - Fragmentation Sensitivity  
+    Pre-fragment the heap, then allocate a large array. Print whether huge pages are formed (e.g., by checking `/proc/self/smaps`). Different runs might yield different promotion outcomes.
+  - Access Frequency Variation  
+    Access memory in different patterns (sequential vs. random). Print a message if THP gets enabled. Inconsistent enabling shows nondeterminism.
+  - Time-Sliced Measurement  
+    Repeatedly check page size details (e.g., `smaps` or `mincore()`) in intervals. Different timing of promotions reveals unpredictability.
+  - Compare THP Enabled vs. Disabled  
+    If permitted, toggle THP settings before runs (e.g., `madvise` vs. `never`). Print performance or memory usage differences. If random changes appear only with THP on, that reveals nondeterminism.
+- |
+  khugepaged Background Daemon.
+  The `khugepaged` daemon runs in the background to promote pages and perform memory compaction. Its scheduling can be unpredictable, varying the timing or success of huge-page formation across runs.
+  Some of test propositions:
+  - Measure Promotion Time  
+    Continuously poll memory mappings to see when pages become huge. The exact moment may differ per run.
+  - Force Memory Pressure  
+    Run a memory-intensive workload that competes with `khugepaged`. Log how many huge pages exist over time; results vary if scheduling is inconsistent.
+  - Monitor CPU Usage  
+    If visible in `/proc`, log spikes in `khugepaged` CPU usage. Different runs might show different patterns of activation times.
+  - Check for Defragmentation  
+    Intentionally fragment memory, then print logs about compaction events. Variability in when compaction completes indicates nondeterminism.
+  - Partial vs. Full THP Activation  
+    Allocate a 2 MB region but only write to half. Log if `khugepaged` merges it. Some runs might merge sooner or later, showing nondeterminism.
+

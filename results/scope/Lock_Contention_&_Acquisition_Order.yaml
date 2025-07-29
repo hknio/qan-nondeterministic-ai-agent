@@ -1,0 +1,54 @@
+scope_name: Lock Contention & Acquisition Order
+prompt: 'Analyze potential non-deterministic behavior within the ''Lock Contention
+  & Acquisition Order'' area of the Linux Kernel. Identify distinct sub-areas or concepts
+  prone to such issues.
+
+
+  #### Description
+
+  When multiple threads compete for the same locks, minor timing differences can change
+  the order of lock acquisition. Adaptive spinning, back-off strategies, or multiple-lock
+  scenarios can amplify these variations. This leads to unpredictable access patterns
+  and sometimes inconsistent results.
+
+  #### Tests
+
+  Dual-Lock Race
+
+  Two threads rapidly attempt to acquire mutexA then mutexB. Each prints the order
+  in which locks are acquired. Variation in lock acquisition order across runs indicates
+  non-determinism.
+
+  Contention Storm
+
+  A program spawns many threads contending for one mutex in tight loops. Each thread
+  prints when it acquires the lock. Any differences in the “Thread X got lock” sequence
+  suggest scheduling changes.
+
+  Adaptive Spin Lock Observed
+
+  Use a locking library (e.g., pthread with spin-then-block). Log the time from lock
+  attempt to lock acquisition. Compare across runs to see if spinning durations differ.
+
+  Nested Lock Checking
+
+  Threads each hold one lock, then try to acquire another. They log every time they
+  must wait for the second lock. Run-to-run variations in wait patterns reveal lock
+  ordering differences.
+
+  Lock-Heavy vs. Lock-Light Threads
+
+  One thread rapidly acquires/releases the mutex, another holds it longer each time.
+  Track which thread acquires it more often. Shifts in these counts across runs indicate
+  non-deterministic scheduling.'
+subjects:
+- Dual-Lock Acquisition Order with Explicit Yielding
+- High-Contention Mutex with Variable Back-off Retries
+- Nested Lock Acquisition with Priority Donation Effects
+- Spinlock Duration Under Concurrent CPU Stress
+- Mixed Lock Type Contention (Mutex vs. RWLock)
+- Lock Ordering with Concurrent Shared File I/O
+- Interrupt Simulation via /dev/aer_inject During Lock Hold
+- Adaptive Spin Threshold Inconsistencies Under Load
+- Thread Termination During Lock Wait via Signal Injection
+- Multi-Lock Deadlock Detection Heuristic Variability

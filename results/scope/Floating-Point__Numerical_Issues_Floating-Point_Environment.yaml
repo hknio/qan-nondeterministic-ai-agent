@@ -1,0 +1,99 @@
+scope_name: 'Floating-Point__Numerical_Issues_Floating-Point_Environment'
+prompt: 'Analyze potential non-deterministic behavior within the Floating-Point & Numerical Issues - Floating-Point Environment'
+subjects:
+- |
+  FPU Control Word / Rounding Mode Differences.
+  The floating-point control word (or equivalent FPU state registers) controls rounding mode and exception masking. If different runs or libraries alter the rounding mode (e.g., round-to-nearest vs. round-down), results can differ slightly.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Sum a large array of floats in various orders (forward/reverse/shuffled).  
+     - Print final sums. Compare across runs.
+  2. Rounding Mode & Extended Precision Variation  
+     - Dynamically switch rounding modes within a loop.  
+     - Print intermediate results to see if any run differs.
+  3. Denormal & Underflow Detection  
+     - Multiply small floats repeatedly.  
+     - Print each iteration’s value to detect if the environment flushes differently.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Compare a function compiled with different intrinsics, each computing the same expression.  
+     - Print both results.
+  5. Speculative & Timing-Sensitive Check  
+     - Use a small FP loop that conditionally branches on high-resolution timer.  
+     - Print final branch decisions to detect micro-timing or speculation differences.
+- |
+  -bit Internal Precision on x86 vs. 64-bit in Memory.
+  x86 can hold 80-bit floats internally (x87 registers), then round to 64-bit on storing to memory. If code stores intermediates at different points or uses different registers, final results can vary slightly.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Force repeated storing to memory vs. staying in registers.  
+     - Print sums for each approach.
+  2. Rounding Mode & Extended Precision Variation  
+     - Toggle a routine to store partial results explicitly to memory vs. leaving them in registers.  
+     - Compare final outputs.
+  3. Denormal & Underflow Detection  
+     - Use extremely small numbers that become denormals.  
+     - Print how many multiplications occur before hitting zero or subnormal range.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Have one path compile with x87 extended precision, another with SSE double precision.  
+     - Print any difference in final results.
+  5. Speculative & Timing-Sensitive Check  
+     - Insert timing checks around loads/stores to detect if speculation changes the order or rounding of operations.  
+     - Print the observed differences.
+- |
+  Flush-to-Zero (FTZ) and Denormals-Are-Zero (DAZ) Modes.
+  Some CPUs/FPUs can flush subnormal (denormal) values to zero, potentially producing different results if the environment toggles these modes across runs or libraries.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Add a large set of very small floats (near subnormal range).  
+     - Compare sums across multiple runs.
+  2. Rounding Mode & Extended Precision Variation  
+     - Attempt to enable/disable flush-to-zero in code (if possible).  
+     - Print computations involving subnormals each run to detect differences.
+  3. Denormal & Underflow Detection  
+     - Repeatedly divide a normal float until it becomes subnormal.  
+     - Print results to see if it flushes to zero at different times.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Perform the same subnormal math in an SSE code path vs. an x87 path.  
+     - Print final differences if any.
+  5. Speculative & Timing-Sensitive Check  
+     - Insert a time-based condition on subnormal calculations.  
+     - Print final states to detect if speculation or FTZ toggles cause variations.
+- |
+  Signed Zeros.
+  IEEE 754 distinguishes +0 and -0. Slight differences in how code handles division or multiplication by zero can produce different signs, and comparisons might see a difference between +0 and -0.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Add sequences of numbers that include zeros; test forward vs. backward.  
+     - Print final sign bit (e.g., via bitwise reinterpretation).
+  2. Rounding Mode & Extended Precision Variation  
+     - Force rounding changes around operations that yield zero.  
+     - Print whether the sign bit of zero changes.
+  3. Denormal & Underflow Detection  
+     - Approach zero from positive vs. negative side in repeated multiplications.  
+     - Print results to see if sign flips unpredictably.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - Compare a function that divides by zero in SSE vs. x87.  
+     - Print sign of the resulting infinity or zero.
+  5. Speculative & Timing-Sensitive Check  
+     - Condition a branch on the sign bit of zero.  
+     - Print which branch is taken each run to detect sign-zero differences.
+- |
+  NaN Payload & Signaling vs. Quiet NaN.
+  NaNs can carry payload bits and can be signaling or quiet. Different architectures or optimization paths can alter these payloads or convert signaling NaNs to quiet NaNs in unpredictable ways.
+  Some of test propositions:
+  1. Summation Order Stress  
+     - Introduce NaNs in a random order with normal numbers.  
+     - Print final aggregated result or NaN payload.
+  2. Rounding Mode & Extended Precision Variation  
+     - Create code blocks that generate a signaling NaN, then store it repeatedly.  
+     - Print the bit pattern each time to see if it changes.
+  3. Denormal & Underflow Detection  
+     - Not strictly about denormals, but underflow might produce a NaN in certain ill-formed expressions.  
+     - Print the final representation of that NaN.
+  4. SSE vs. x87 or FMA Path Comparison  
+     - A function that triggers NaNs in SSE vs. x87.  
+     - Print the final NaN payload or sign bit to detect differences.
+  5. Speculative & Timing-Sensitive Check  
+     - Force the CPU to speculate a path that generates NaNs vs. a path that does not.  
+     - Print which path was taken or the final NaN details.
+

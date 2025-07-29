@@ -1,0 +1,31 @@
+scope_name: 'Randomness__Entropy_Random_Devices__APIs'
+prompt: 'Analyze potential non-deterministic behavior within the Randomness & Entropy - Random Devices & APIs'
+subjects:
+- |
+  /dev/random, /dev/urandom.
+  These devices rely on kernel entropy pools. Unless seeded deterministically, each read can produce different bytes across runs. `/dev/random` can also block if insufficient entropy is available, while `/dev/urandom` is non-blocking but still yields unpredictable data if not replaced by a fixed seed.
+  Some of test propositions:
+  - idea 1: Read a fixed number of bytes (e.g., 32) from `/dev/random` and print in hex. Compare outputs across multiple runs and servers.  
+  - idea 2: Read a fixed number of bytes (e.g., 32) from `/dev/urandom` and print in hex. Compare outputs across multiple runs.  
+  - idea 3: Attempt reading a larger chunk (e.g., 512 bytes) from `/dev/random` to observe if blocking or timing variations occur. Print how many bytes were successfully read in 5 seconds.  
+  - idea 4: Perform several small reads from `/dev/urandom` in quick succession within one program, printing each batch. Check if consecutive reads differ across runs.  
+  - idea 5: Run the same `/dev/random` or `/dev/urandom` read-test program on different servers. If outputs differ, it indicates the host kernel entropy is not isolated.
+- |
+  Language/Library RNGs.
+  Many language standard libraries seed their random number generators from the system clock or from `/dev/urandom`. Without manual seeding, each program startup can yield different sequences of random numbers.
+  Some of test propositions:
+  - idea 1: Write a short program in any language (e.g., Python, C++, Go) that generates 10 random integers from the default RNG without specifying a seed. Print them to stdout and compare across runs.  
+  - idea 2: In a single execution, call the RNG multiple times in quick succession, printing the sequence. Compare results across multiple runs on the same server.  
+  - idea 3: Observe whether the language auto-seeds from the system time by launching the same program repeatedly in less than a second. If you see different sequences, it implies time-based seeding.  
+  - idea 4: Include calls to library functions that might use internal RNG (e.g., `uuid` generation in some languages). Compare generated IDs across runs.  
+  - idea 5: Run the exact same binary on multiple servers. If the outputs differ, it indicates reliance on environment-based seeding rather than a fixed seed.
+- |
+  Other System APIs.
+  Certain syscalls (e.g., `getrandom()`) or library functions can pull directly from kernel entropy. Some runtimes or tools (profilers, debuggers) also generate IDs or tokens behind the scenes using random data.
+  Some of test propositions:
+  - idea 1: Compile a small program that directly calls `getrandom()` (if available) to read 16 bytes and print them. Check if outputs differ across runs.  
+  - idea 2: Use a system call tracing tool (if permitted in the container) to confirm whether calls to random-related APIs (like `getrandom()`) occur during program startup. Compare run traces.  
+  - idea 3: Invoke a standard library function known to rely on random data (e.g., generating cryptographic keys in OpenSSL). Print the first bytes of each key across runs.  
+  - idea 4: In the same program, force multiple calls to `getrandom()` at different stages of execution (start, mid, end). Compare the chunks.  
+  - idea 5: Run a simple script that tries to identify or measure any behind-the-scenes random usage (e.g., a function that loads debugging symbols). Compare logs to see if any random tokens differ across runs.
+

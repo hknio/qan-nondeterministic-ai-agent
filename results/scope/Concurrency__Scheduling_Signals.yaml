@@ -1,0 +1,32 @@
+scope_name: 'Concurrency__Scheduling_Signals'
+prompt: 'Analyze potential non-deterministic behavior within the Concurrency & Scheduling - Signals'
+subjects:
+- |
+  Signal Delivery Order & Timing.
+  Signals (e.g., `SIGUSR1`, `SIGTERM`, timer signals) can interrupt a process at arbitrary points. Tiny shifts in execution timing can change the exact instruction interrupted or the sequence in which multiple signals arrive, leading to non-deterministic outcomes—especially if the handler modifies global state.
+  Some of test propositions:
+  - High-Frequency Timer  
+    Use `setitimer()` to send frequent signals. The handler logs timestamps. Comparing these timestamps across runs can expose variations in arrival times.  
+  - Signal Storm  
+    A helper thread repeatedly sends a user-defined signal to the main process. The handler prints each arrival. Different sequences of arrivals across runs reveal non-determinism.  
+  - Signal + CPU-Bound Loop  
+    The main thread does heavy computation while a timer or thread sends signals. The handler prints partial progress. Differences in how often computation is interrupted appear across runs.  
+  - Concurrent Alarm Set & Cancel  
+    One thread sets alarms, another cancels them. The signal handler prints each time it’s triggered. Sometimes the alarm fires, sometimes it’s canceled first, in unpredictable order across runs.  
+  - Nested Signal Handling  
+    A signal handler re-raises the same or another signal. It logs each time it is entered. If re-entrancy sequences differ across runs, timing is non-deterministic.
+- |
+  Signal Mask/Handler Races.
+  Processes can mask and unmask signals, creating race windows where a signal might arrive just before or just after unmasking. Handlers can also be re-entered if signals arrive in quick succession. These subtle differences in timing produce distinct run-to-run behaviors.
+  Some of test propositions:
+  - Mask Flip Test  
+    One thread continuously masks/unmasks a signal while another sends it. The handler prints whenever it actually runs. Variation in when it runs shows the race.  
+  - Re-entrant Handler Counter  
+    A fast loop sends signals at high frequency. The handler increments a counter and prints it. If the handler is interrupted by another signal, the sequence might skip or jump.  
+  - Thread-Local Signal Handling  
+    Each thread sets a different mask for the same signal. Another thread sends the signal. Compare which thread’s handler was invoked more often across runs.  
+  - Handler Registration Race  
+    One thread repeatedly changes the signal handler (`sigaction`), another sends the signal. Print which handler actually catches it. Different runs may have different handler usage.  
+  - Delayed Signal Execution  
+    A busy main thread times how long after posting a signal the handler actually runs. Variation in measured delay reveals scheduling or masking differences.
+

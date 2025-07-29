@@ -1,0 +1,80 @@
+scope_name: 'System_Calls__Kernel_Interactions_Named_Pipes___Unix_Domain_Sockets'
+prompt: 'Analyze potential non-deterministic behavior within the System Calls & Kernel Interactions - Named Pipes / Unix Domain Sockets'
+subjects:
+- |
+  Concurrent Writes & Partial Writes.
+  When multiple processes write to the same pipe or socket, the kernel can interleave or split writes differently. Partial writes can occur if buffer space is limited, resulting in unpredictable final ordering or chunk sizes.
+  Some of test propositions:
+  1. Two Writers, Single Reader  
+     - Each writer tags data chunks uniquely, e.g., `(Writer1-ChunkX)`.  
+     - The reader prints the sequence read to stdout.
+  2. Large Chunk vs. Small Chunks  
+     - Writer A sends large buffers while Writer B sends many small buffers.  
+     - Compare how often large buffers get split or interleaved with small ones.
+  3. Non-blocking Mode  
+     - Both writers use non-blocking writes.  
+     - Print counts of partial writes (`EAGAIN`) and how many total writes succeed.
+  4. Rapid Fire vs. Delayed Writes  
+     - One writer writes continuously, the other inserts random sleeps.  
+     - Observe how that changes the interleaving in the reader’s output.
+  5. Immediate Flush  
+     - If possible, use `fsync`-like calls or forced flush after each write.  
+     - Compare results to a run without flushing to see differences in partial chunk reads.
+- |
+  Connection Handshakes.
+  In Unix domain sockets, servers accept connections in the order the kernel processes them. Small timing shifts can reorder which client connects first. This reordering can manifest in different concurrency states.
+  Some of test propositions:
+  1. Multiple Simultaneous Connects  
+     - Have multiple clients call `connect()` at nearly the same moment.  
+     - Server logs connection acceptance order to stdout.
+  2. Random Delays in Clients  
+     - Insert random micro-sleeps before each client’s connect call.  
+     - Compare acceptance order variations across runs.
+  3. Burst vs. Staggered  
+     - Launch 10 clients at once, then in another run launch them at intervals.  
+     - Print which client ID the server sees first each time.
+  4. Connection Queue Fill  
+     - Set a small backlog in `listen()`. Attempt more simultaneous connections than the backlog size.  
+     - Record how many connections get refused or accepted in which order.
+  5. Quick Disconnect/Reconnect  
+     - Clients connect, immediately disconnect, then reconnect quickly.  
+     - Check if the server logs show random acceptance sequences across attempts.
+- |
+  Non-blocking Mode & Buffers.
+  Similar to other I/O, non-blocking sockets or pipes can return `EAGAIN` if their buffers are full or empty, leading to race conditions in read/write order or partial data acceptance.
+  Some of test propositions:
+  1. Non-blocking Socket Ping-Pong  
+     - Two processes exchange messages in quick succession.  
+     - Print each side’s partial reads/writes count.
+  2. Buffer Overrun  
+     - Send large messages while the receiver intentionally delays reading.  
+     - Record how often the sender gets `EAGAIN`.
+  3. Randomized Sleep  
+     - Both sender and receiver sleep randomly between operations.  
+     - Compare the final message sequence across runs.
+  4. Reduced Buffer Size  
+     - If possible, adjust socket buffer limits (via `setsockopt`) to be very small.  
+     - Output how many writes result in partial sends.
+  5. High-Frequency Reconnect  
+     - Rapidly close and reopen the socket in non-blocking mode.  
+     - Log how many initial writes fail or partially succeed each time.
+- |
+  Backlog & Queue Limits.
+  If the backlog is reached or the queue is full, connection attempts or writes may be dropped or delayed. Tiny timing differences can change who gets accepted or how data is queued.
+  Some of test propositions:
+  1. Exceed Backlog  
+     - Listen with a low backlog count, then attempt more concurrent connections than the backlog can handle.  
+     - Print how many clients get accepted vs. refused.
+  2. Gradual vs. Instant Connection  
+     - Connect clients one by one vs. all at once.  
+     - Output whether the backlog was reached in each scenario.
+  3. Connection Flood  
+     - Script that spawns connections in bursts (e.g., 5 attempts at once, repeated).  
+     - Log success/failure ratio.
+  4. Random Delays  
+     - Delay the server’s `accept()` call intentionally.  
+     - See if that causes the backlog to fill and drop connections. Print the dropped count.
+  5. Queue Variation  
+     - Combine large data writes with multiple new connection attempts simultaneously.  
+     - Compare success/failure pattern across runs to see if data writes block new connections.
+

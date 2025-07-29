@@ -1,0 +1,48 @@
+scope_name: 'Containerization__Virtualization_KVM_gVisor_Internals'
+prompt: 'Analyze potential non-deterministic behavior within the Containerization & Virtualization - KVM/gVisor Internals'
+subjects:
+- |
+  Syscall Interception & Emulation.
+  gVisor intercepts syscalls in a user-space “Sentry,” which can reorder or partially emulate them. Internal scheduling, concurrency, and potential retries introduce subtle timing differences or race conditions that can cause outputs to vary across runs.
+  Some of test propositions:
+  - Syscall Flooder  
+    Floods the system with many file/IPC/network* syscalls in a tight loop and logs timestamps or success/failure codes to stdout. Compare run-to-run differences in the logged sequence or timing.
+  - Interleaved Syscall Executor  
+    Spawns multiple threads/processes each performing different syscalls (e.g., reading files, writing temporary files). Logs the order in which operations complete to stdout, checking for varying sequences between runs.
+  - Syscall Emulation Edge Cases  
+    Executes unusual or less-common syscalls (e.g., certain `ioctl` calls) and prints any return codes or partial successes/failures. Differences in repeated runs suggest non-deterministic emulation timing.
+  - Timing-Based Measurement  
+    Repeatedly calls a trivial syscall (like `getpid()`) thousands of times, measuring and printing average or max latency. Significant variance or sporadic spikes indicate non-deterministic scheduling or partial emulation.
+  - Syscall Sequence Checker  
+    Pre-generates a fixed random sequence of syscalls, executes them in order, and logs the exact completion order or any errors. If reorderings appear across runs, it points to concurrency differences in the Sentry.
+  
+  *(Network syscalls in this environment may be limited or simulated, but local sockets or similar interfaces can still demonstrate concurrency.)
+- |
+  Container Hostname / IDs.
+  Container runtimes often assign ephemeral hostnames or IDs. Namespaces also generate unique inode numbers and network interface identifiers. If a program reads these values, it may produce different outputs each time a container is started.
+  Some of test propositions:
+  - Hostname Reader  
+    Reads the hostname via `gethostname()` and prints it to stdout. If the container runtime assigns random hostnames, the outputs differ across runs.
+  - Environment Variable Dumper  
+    Prints all environment variables (`env`). Some container tools inject ephemeral container IDs or session tokens. Variations reveal changing IDs.
+  - Namespace Check  
+    Lists `/proc/self/ns/*` and prints the inode numbers for each namespace. Differences in inode values across runs show unique namespace assignments.
+  - Network Interface Enumerator  
+    Enumerates interfaces (e.g., `ip link show`) and prints interface names, MAC addresses, etc. In ephemeral setups, interface names or MACs can differ each time.
+  - Unique ID Collector  
+    Checks files like `/etc/hostname` or `/etc/hosts` for container-specific identifiers and prints any discovered strings. Differences in IDs hint at ephemeral container naming.
+- |
+  gVisor’s Internal Goroutines.
+  gVisor is written in Go and spawns multiple goroutines to handle container syscalls and tasks. The Go scheduler and garbage collector can reorder operations, introduce variable latency, or pause goroutines at unpredictable moments.
+  Some of test propositions:
+  - Concurrent File Access  
+    Multiple threads open/write/read the same file concurrently, each logging the exact order or version of data accessed. Differences between runs reflect internal concurrency scheduling.
+  - Load-Spike Test  
+    One part of the program continuously triggers syscalls or file I/O, while another measures latency of trivial operations (e.g., timing how long a simple read takes). Printed latencies can vary if gVisor’s goroutines are rescheduled.
+  - Sentry GC Stress  
+    Rapidly allocates and frees small chunks of memory (in the tested process) to provoke the Sentry’s garbage collector. Logs the times certain operations complete. Jitter across runs suggests GC-induced scheduling shifts.
+  - Goroutine Reordering Check  
+    Spawns N goroutines, each sleeps for a short random duration, then prints a sequence number. Any reordering of prints between runs exposes scheduling nondeterminism.
+  - Syscall-Future Completions  
+    Invokes partially blocking syscalls (like small `poll()` or `select()`) in concurrent goroutines and logs start/end times. Differences in completion order or timing across runs reveal internal concurrency variance.
+

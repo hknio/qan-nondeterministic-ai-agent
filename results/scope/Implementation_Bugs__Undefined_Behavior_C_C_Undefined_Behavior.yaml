@@ -1,0 +1,58 @@
+scope_name: 'Implementation_Bugs__Undefined_Behavior_C_C_Undefined_Behavior'
+prompt: 'Analyze potential non-deterministic behavior within the Implementation Bugs & Undefined Behavior - C/C++ Undefined Behavior'
+subjects:
+- |
+  Buffer Overflows & Memory Corruption.
+  Writing beyond allocated memory (e.g., array out-of-bounds) may corrupt adjacent data or control structures. Different runs or compiler optimizations can manifest these corruptions in unpredictable ways, potentially causing crashes or inconsistent outputs.
+  Some of test propositions:
+  - Idea 1: Allocate several buffers in a tight loop, write slightly out of bounds, then read from neighboring buffers and print checksums.
+  - Idea 2: Randomize the order of allocations/frees, then intentionally perform an out-of-bounds write to see if corruption changes a final aggregated hash.
+  - Idea 3: Repeatedly perform boundary checks with an “off-by-one” error in a critical loop and log whether the loop ever produces unexpected values.
+  - Idea 4: Use multi-threading (even on one CPU) where one thread does out-of-bounds writes while another continuously reads a shared structure. Compare final structure checksums across multiple runs.
+  - Idea 5: Vary the size of the allocated arrays at runtime and see if the resulting output hash changes unexpectedly between runs or servers.
+- |
+  Use of Uninitialized Variables.
+  Reading uninitialized memory may return “garbage” data leftover from prior stack or heap usage. Compilers can also optimize code in ways that expose or hide these reads differently across runs.
+  Some of test propositions:
+  - Idea 1: Create a program that intentionally declares large local arrays without initialization, then sums their contents and prints a single hash result.
+  - Idea 2: Randomize the calling order of functions that each have uninitialized local variables, then compare final outputs for each permutation.
+  - Idea 3: Allocate a large heap buffer, partially initialize it, and read from uninitialized regions—print checksums of those regions to see if runs differ.
+  - Idea 4: Use a minimal multi-thread approach where thread A allocates memory but only partially initializes it, and thread B immediately reads it. Print both threads’ results.
+  - Idea 5: Force different optimization levels (`-O0`, `-O2`) within the same container (if allowed) to see if the program output changes due to the compiler handling of uninitialized variables.
+- |
+  Dangling Pointers & Use-After-Free.
+  Accessing memory after it’s freed can sometimes “appear” to work or cause silent corruption. The behavior can vary drastically depending on memory allocator state, thread interleavings, and optimization.
+  Some of test propositions:
+  - Idea 1: Allocate a structure, free it, then immediately allocate a new object of similar size. Print checksums of the new object to see if leftover data from the old object appears.
+  - Idea 2: Use multiple threads where one frees a buffer while another tries to read it. Compare final outputs or detect crashes across repeated runs.
+  - Idea 3: Randomize the order of large vs. small allocations, forcing the allocator to reuse memory regions quickly, then read from a freed pointer.
+  - Idea 4: Insert deliberate delays (e.g., a short busy loop) between free and read in a single-thread scenario to see if it alters final results.
+  - Idea 5: Maintain a log of pointer addresses and their contents before/after free. Check if differences appear across repeated executions.
+- |
+  Type Punning & Strict Aliasing Violations.
+  Reinterpreting a memory region of one type as a different type without using safe approaches (e.g., `memcpy`, unions) breaks strict aliasing rules. Optimizers might produce code that assumes no aliasing occurs, leading to unpredictable behavior.
+  Some of test propositions:
+  - Idea 1: Create a test that casts a `float*` to an `int*` in a loop, modifies the data in one pointer, and reads from the other. Compare final numeric outputs across runs.
+  - Idea 2: Use a union vs. raw pointer casting to see if results differ in a simple series of computations.
+  - Idea 3: Compile two versions of the same code: one with `-fno-strict-aliasing` and one with default flags. Compare the final printed checksums.
+  - Idea 4: Insert artificially complex expressions to encourage aggressive compiler optimizations, then print intermediate results at each step to detect differences.
+  - Idea 5: Try punning structures of different sizes or alignment constraints, then observe if printing field values produces inconsistent outputs in repeated runs.
+- |
+  Data Races in C/C++.
+  Even in a single virtual CPU environment, threads can be time-multiplexed. Unprotected shared data access can lead to unpredictable read/write interleavings, causing different results across runs.
+  Some of test propositions:
+  - Idea 1: Have two threads increment a shared counter without a lock in a tight loop. Print the counter at the end to see if final values differ across runs.
+  - Idea 2: Use a shared boolean flag toggled by one thread while another thread checks its value in a loop, logging every transition.
+  - Idea 3: Introduce a short randomized sleep (e.g., CPU busy-wait for microseconds) in one thread to shift scheduling patterns slightly and see if final outputs vary.
+  - Idea 4: Combine multiple shared variables with partial locking to see if partial synchronization leads to race conditions that alter final aggregated results.
+  - Idea 5: Compare the results of the same code compiled with and without memory barriers or atomic operations, checking if outputs remain consistent.
+- |
+  Invalid Shift Operations, Alignment Violations, etc..
+  Shifting integers by more bits than their width or performing misaligned memory accesses can yield undefined results in C/C++. On x86, misalignment might be tolerated but can still cause performance or subtle correctness differences, especially under optimization.
+  Some of test propositions:
+  - Idea 1: Run a loop that deliberately shifts an integer by an out-of-range amount, printing the result for each iteration.
+  - Idea 2: Access a structure misaligned on purpose (e.g., via a packed struct) and print out the fields in a loop, checking for unexpected anomalies.
+  - Idea 3: Compare two programs: one with normal alignment, one that forces misalignment using `#pragma pack`. Check if final outputs ever diverge.
+  - Idea 4: Insert instructions that rely on SSE or AVX loads of data not aligned to 16 or 32 bytes, then print checksums of the loaded data.
+  - Idea 5: Randomize the alignment of allocated memory by adjusting offsets before use. Collect final computations in a checksum to detect differences.
+

@@ -1,0 +1,74 @@
+scope_name: 'Language_Runtimes__Libraries_Hash_Seeds_in_Standard_Collections'
+prompt: 'Analyze potential non-deterministic behavior within the Language Runtimes & Libraries - Hash Seeds in Standard Collections'
+subjects:
+- |
+  Randomized Hash Seeds.
+  Many language libraries use a random seed to create hash codes (especially for strings) to mitigate collision attacks. This random seed can differ each process start (even in a fresh container), causing map/dict insertion or iteration order to vary.
+  Some of test propositions:
+  1. Insert Known Keys  
+     - Insert a set of known string keys into a hash map and print the iteration order. Compare logs across multiple runs. If the seed changes, you’ll see different orders.
+  2. Compare Hash of Identical Strings  
+     - For each run, calculate and print the library’s “hash code” of identical strings. If the library exposes raw hash values, they might differ across runs, revealing a changed seed.
+  3. Process Restart Test  
+     - Re-run the same program multiple times in a loop. Print the order of keys each time. If the seed is randomized on each startup, the ordering will vary from run to run.
+  4. High-Volume Dictionary  
+     - Insert hundreds or thousands of keys. Print partial or complete iteration. Subtle changes in the hash seed can rearrange large portions of the map’s internal structure.
+  5. Mixed-Type Keys  
+     - Insert integer, string, and custom object keys. Log their insertion and iteration. Some languages randomize hashing for multiple key types, leading to unpredictable iteration sequences.
+- |
+  Dictionary/Map Iteration Order.
+  Even if the hash seed is fixed, some dictionary implementations do not preserve insertion order by default. Internal rehashing (e.g., due to expansions or collisions) can lead to iteration order changes, especially under concurrency or if the seeds differ.
+  Some of test propositions:
+  1. Incremental Insertion  
+     - Insert keys one by one in a loop, printing the entire dictionary order after each insertion. If rehashing occurs unpredictably, the sequence might differ across runs.
+  2. Random Removal & Reinsertion  
+     - Insert a set of keys, remove some at random, then reinsert them. Print the final iteration order. Subtle timing or internal expansions might yield different final orders each run.
+  3. Concurrent Access  
+     - Even on a single CPU, multiple threads might manipulate the map. Log each operation and final iteration. If thread scheduling differs, iteration order might differ too.
+  4. Large vs. Small Maps  
+     - Use a map near capacity so that one more insertion triggers a rehash. Log exactly when the rehash occurs. Compare across runs to see if it triggers at different times.
+  5. Seeded vs. Unseeded  
+     - If possible, run the same code with a forced seed (some languages allow setting a deterministic seed) and then without it. Print final iteration orders in both cases to highlight nondeterminism in the unseeded scenario.
+- |
+  Per-Process or Per-Thread Seeds.
+  Some languages assign a random hash seed to each new process or each newly created thread. Thus, even if the container is identical, each run or each thread might get a different seed, producing different hash-based outcomes.
+  Some of test propositions:
+  1. Per-Thread Hash  
+     - Create multiple threads, each computing the hash of the same set of strings. Print the results from each thread. If seeds differ by thread, the results might not match.
+  2. Spawn/Terminate Threads  
+     - Dynamically create and destroy threads, each maintaining its own dictionary. Print iteration order. Different seeds might appear if each thread picks a new seed.
+  3. Check Start-of-Run vs. Late Threads  
+     - Some runtimes seed all threads at process start, others assign seeds as threads are created. Compare a thread created at the start vs. one created later, each printing a dictionary iteration.
+  4. Thread Name or ID  
+     - Sometimes, seeds might incorporate a thread ID. Print the thread ID plus the hash seed if accessible. Run multiple times to see if these IDs or seeds vary.
+  5. Mass Re-Entrant Test  
+     - Continuously create short-lived threads that each build a small map, print it, and exit. Compare outputs across repeated runs. If each thread seeds differently, the order changes unpredictably.
+- |
+  Other Randomized Data Structures.
+  Beyond standard dictionaries, some libraries implement skip-lists, randomized BSTs, or priority queues that use random numbers internally. The insertion or balancing might yield different structural outcomes on each run.
+  Some of test propositions:
+  1. Skip-List Insert  
+     - Insert a known sequence of numbers into a skip-list. Print the “levels” or structure if possible. Random “coin flips” in insertion can produce different structures across runs.
+  2. Randomized BST  
+     - Insert identical keys in the same order. Print an in-order or level-order traversal. If the tree uses random priorities, the shape might differ.
+  3. Priority Queue  
+     - Insert elements with the same priority, then pop them in a loop, printing the pop order. Some randomized heaps may produce varying pop sequences if priorities are duplicated.
+  4. Check Structural Height  
+     - For skip-lists or randomized trees, print the height or average depth after all inserts. Differences across runs indicate nondeterministic structure.
+  5. Large Number of Inserts  
+     - Insert a large volume of data. Print partial internal representation. With more inserts, randomization’s impact is more likely to create divergent outcomes across runs.
+- |
+  String Hashing Variations.
+  Many runtimes use ephemeral seeds for string hashing. Even if the container has a fixed system seed, the language might override it with its own random generator (e.g., secure random calls or CPU-specific instructions), causing different hash values for the same string across runs.
+  Some of test propositions:
+  1. Direct String Hash Checks  
+     - Call the language’s default `hashCode()` (or equivalent) for identical strings multiple times on new processes, printing the numeric result. If it changes, ephemeral seeding is proven.
+  2. Dictionary with Identical Strings  
+     - Insert multiple identical strings into a dictionary. Print debug info or iteration order. If collisions or distribution differ across runs, the seed is changing.
+  3. Mixed ASCII vs. Unicode  
+     - Some runtimes use different hashing for extended characters. Print the hash of strings with special characters. Minor differences might show up in different runs if seeds or code paths differ.
+  4. Compare Substring Hashes  
+     - Create substrings from a larger string. Some implementations re-hash or store offsets. Print each substring’s hash to see if ephemeral seeds produce run-to-run differences.
+  5. Forced Re-Hash  
+     - Insert strings, remove them, then re-insert them. Print the hash every time. The library may generate new ephemeral seeds or do extra checks that differ per run.
+

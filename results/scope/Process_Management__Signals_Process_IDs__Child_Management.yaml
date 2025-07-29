@@ -1,0 +1,46 @@
+scope_name: 'Process_Management__Signals_Process_IDs__Child_Management'
+prompt: 'Analyze potential non-deterministic behavior within the Process Management & Signals - Process IDs & Child Management'
+subjects:
+- |
+  Non-deterministic item: PID Assignment.
+  Due to the kernel’s PID allocation strategy, ephemeral threads/processes, and variations in container runtime behavior, the specific PID assigned to each process can differ between runs. Even in a PID namespace, small timing differences or additional background processes may lead to different PID values or parent process IDs (`getpid()`, `getppid()`).
+  Some of test propositions:
+  1. Parent-Child PID & Timing Checker  
+     - Spawns multiple child processes in quick succession. Each child prints its PID, and the parent prints PIDs as they are created. Compare outputs across runs on different servers.
+  2. Concurrent Subprocess Spawns  
+     - Forks several children rapidly (e.g., in a loop), each logging its creation time and PID. Subtle timing shifts can cause varied PID sequences across multiple runs.
+  3. PID Collision/Offset Test  
+     - Continuously spawns short-lived child processes, each exiting after a quick operation. Logs every PID. Look for differences in PID gaps or offsets across runs and servers.
+  4. PID Inheritance Chain Logger  
+     - A parent spawns a child, which spawns a grandchild, etc., each printing `getpid()` and `getppid()`. Compares these hierarchies across multiple executions.
+  5. PID Observation via `/proc`  
+     - Repeatedly enumerates `/proc` right after spawning children, capturing which PIDs are visible. Any differences across runs may highlight how PID assignment can fluctuate.
+- |
+  Non-deterministic item: Zombie Cleanup Timing.
+  When a child process exits, it becomes a zombie until the parent reaps it with a `wait()` call. Minor scheduling or signal-delivery variations can affect exactly when the parent reaps the child, leading to different intervals where zombie processes are visible or not.
+  Some of test propositions:
+  1. Parent-Child PID & Timing Checker  
+     - Forks a child that sleeps briefly and then exits. The parent repeatedly checks for zombies via `waitpid()` or `/proc`. Variations in how long zombies persist indicate non-determinism.
+  2. Zombie Window Measurement  
+     - Spawns multiple children that exit at slightly different times. Logs the time each child becomes a zombie and the time it’s reaped. Compare differences across runs.
+  3. Staggered Child Exit Test  
+     - Three children exit at short, medium, and longer intervals. The parent checks for zombies repeatedly. If reaping times shift or overlap inconsistently across runs, it shows timing differences.
+  4. Signal-Interrupted Reaping  
+     - Sets up a signal handler that may interrupt the parent’s `wait()` calls. Logs how often reaping is delayed or repeated due to signals (`EINTR`). Compare across servers.
+  5. Rapid Fork-Exit Loop  
+     - Creates child processes in a loop that exit almost immediately. Parent attempts to reap them in quick succession. The timing of zombie reaping can differ across repeated runs.
+- |
+  Non-deterministic item: Fork/Exec Races.
+  During `fork()`, small timing or signal-delivery differences can cause race conditions in which the parent or the child proceeds first. Additionally, if multiple child processes call `execve()` at nearly the same time, the order in which they begin new programs can vary run-to-run.
+  Some of test propositions:
+  1. Multiple-Child Race & Exit Order Test  
+     - Spawns several children that each call `execve()` to run trivial programs. Logs the order and timing of successful `execve()` calls across many runs.
+  2. Signal Handling During Fork  
+     - Sets up a signal (e.g., `SIGALRM`) to fire around the time of `fork()`. Checks which process handles the signal first. Compare how often the child vs. parent receives it first.
+  3. Exec Logging Program  
+     - Each child after `fork()` executes a different binary that prints its start timestamp. The parent collects these timestamps. If the sequence changes across runs, it indicates a race.
+  4. Concurrent Fork Stress  
+     - Spawns a burst of child processes in parallel (or in rapid sequence). Each child does minimal work, then `execve()` a simple command. Logs start/end times. Variation in which child starts first reflects race conditions.
+  5. Pre-Fork Signal Queueing  
+     - Queues a signal before calling `fork()`. Observes whether the parent or newly forked child processes it first. Differences in who processes the signal can reveal fork/exec race non-determinism.
+

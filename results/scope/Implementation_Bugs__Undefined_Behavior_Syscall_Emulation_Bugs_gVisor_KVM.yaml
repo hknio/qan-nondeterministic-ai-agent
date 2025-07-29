@@ -1,0 +1,40 @@
+scope_name: 'Implementation_Bugs__Undefined_Behavior_Syscall_Emulation_Bugs_gVisor_KVM'
+prompt: 'Analyze potential non-deterministic behavior within the Implementation Bugs & Undefined Behavior - Syscall Emulation Bugs (gVisor/KVM)'
+subjects:
+- |
+  Incomplete or Inconsistent Syscall Coverage.
+  gVisor emulates many syscalls in userspace, potentially leaving edge cases or less common syscalls only partially supported. Return values or `errno` might differ from native Linux behaviors.
+  Some of test propositions:
+  - Idea 1: Invoke a suite of uncommon syscalls or `ioctl`s with borderline parameters. Print each call’s return code and `errno`.
+  - Idea 2: Stress-test concurrency for a syscall that is known to be partially emulated (e.g., advanced namespace or scheduling calls). Log final statuses in a repeated loop.
+  - Idea 3: Attempt extreme resource usage (within 1024 MB limit) to see if memory-related syscalls fail or behave unexpectedly, then print the results.
+  - Idea 4: Compare the observed behavior of a specific syscall in gVisor vs. a native Linux environment (if accessible). Print any differences in return codes.
+  - Idea 5: Try calling syscalls in a random sequence with random arguments. Log all return values in a structured format and compare across repeated runs.
+- |
+  Emulated Scheduling Differences.
+  gVisor’s scheduling might not precisely mirror the host kernel’s. Threads or blocking syscalls could be handled differently, revealing subtle concurrency issues.
+  Some of test propositions:
+  - Idea 1: Have multiple threads performing blocking reads on pipes or sockets. Log the order in which they are unblocked, comparing across runs.
+  - Idea 2: Use a high volume of short-lived threads that do minimal work, capturing final thread completion order or times in a printed log.
+  - Idea 3: Include random `sched_yield` calls in a multi-thread program to see if gVisor scheduling produces different interleavings from run to run.
+  - Idea 4: Repeatedly run a simple server/client pattern in the container (if networking is allowed within the container) to see if acceptance order changes.  
+  - Idea 5: Force CPU-bound tasks plus I/O-bound tasks in the same program. Compare final aggregated performance logs or result ordering across multiple runs.
+- |
+  Virtualized Resource Limits.
+  Although memory is capped at 1024 MB and CPU is restricted to 1 core, the internal resource tracking in gVisor can introduce subtle race conditions or inconsistent behaviors when near these limits.
+  Some of test propositions:
+  - Idea 1: Allocate close to the 1024 MB limit, then spawn an additional thread that also tries to allocate memory. Print success/failure statuses and see if they differ across runs.
+  - Idea 2: Continuously open and close file descriptors until reaching a limit. Log the point of failure or error codes for each run.
+  - Idea 3: Run a tight CPU-bound loop for ~4 seconds, then attempt a heavy memory operation. Compare how gVisor prioritizes or interrupts tasks.
+  - Idea 4: Approach the memory limit in small increments, printing each allocation’s success. Compare final allocations possible in repeated runs.
+  - Idea 5: Spin up multiple processes (if permitted within the container) that collectively approach the memory or FD limit. Log the final resource usage and any errors.
+- |
+  Version or Host-Specific Behaviors.
+  Different blockchain nodes might run slightly different gVisor or host kernel versions. Minor changes in emulation logic, CPU microcode, or hardware could surface as differences in syscall results or timing.
+  Some of test propositions:
+  - Idea 1: Gather a “feature fingerprint” (e.g., /proc/cpuinfo, if accessible, or a minimal feature detection program) and print it. Compare across nodes to see differences.
+  - Idea 2: Run a suite of small tests that check various syscalls’ behaviors and collect them into a single hash. Compare the hash across servers.
+  - Idea 3: Perform repeated floating-point or concurrency tests on each host, looking for divergences that might map to CPU microcode differences.
+  - Idea 4: If multiple gVisor versions exist, run the same binary in each environment and compare logs for any discrepancies in return codes or error messages.
+  - Idea 5: Stress test timing or scheduling by measuring how long a specific syscall takes in a loop, printing an aggregated statistic. Differences might indicate host-specific quirks.
+

@@ -1,0 +1,80 @@
+scope_name: 'System_Calls__Kernel_Interactions_IPC__Message_Queues'
+prompt: 'Analyze potential non-deterministic behavior within the System Calls & Kernel Interactions - IPC & Message Queues'
+subjects:
+- |
+  Concurrent Senders.
+  Multiple processes sending messages simultaneously to the same queue can have their messages interleaved differently depending on kernel scheduling and queue states.
+  Some of test propositions:
+  1. Two-Process Sender  
+     - Create two sender processes, each labeling their messages (`SenderA-1, SenderB-1, ...`).  
+     - Collect them in a single receiver and print the order received.
+  2. Variable Message Size  
+     - Send small (few bytes) vs. large (kilobytes) messages to the same queue.  
+     - Observe whether large messages cause the queue to reorder smaller ones differently.
+  3. Burst vs. Steady Send  
+     - One sender blasts messages rapidly; the other sends messages at a steady interval.  
+     - Print final sequence to see if timing changes interleaving.
+  4. Queue Near Full  
+     - Force the queue close to capacity so some sends might block or fail with `EAGAIN` in non-blocking mode.  
+     - Output how many messages each sender was able to enqueue.
+  5. High Frequency Switching  
+     - Each sender sleeps for a random micro-interval between sends.  
+     - Compare the final interleaving across multiple runs.
+- |
+  Message Priorities.
+  Some message queue implementations allow priorities. Messages with the same priority might still arrive in different orders if they’re inserted nearly simultaneously.
+  Some of test propositions:
+  1. Same Priority Flood  
+     - Have all senders use the same priority but send messages as quickly as possible.  
+     - Print the exact order of arrival to see if it’s consistent.
+  2. Mixed Priority  
+     - Send high-priority messages and low-priority messages in a random interleaving.  
+     - Observe if low-priority messages sometimes appear before high-priority ones in edge cases.
+  3. Close Timing Injection  
+     - Attempt to send messages from multiple processes at nearly the same instant (e.g., triggered by a shared clock).  
+     - Compare which priority gets served first in repeated runs.
+  4. Priority Inversion Stress  
+     - Send many high-priority messages followed by many low-priority messages, then a small number of high again.  
+     - Print final order to see if the queue logic ever inverts.
+  5. Varying Priority Batches  
+     - Alternate between batches of the same priority and single messages of a higher priority.  
+     - Record whether the single higher-priority message always surfaces first.
+- |
+  Queue Size & Blocking Behavior.
+  When the queue is near capacity, sends may block or fail, depending on concurrency and kernel states. Slight changes in timing can lead to different processes winning the race to enqueue.
+  Some of test propositions:
+  1. Gradual Fill  
+     - Slowly fill the queue with messages until it’s one away from full capacity.  
+     - Print which send fails or blocks first across runs.
+  2. Rapid Overfill  
+     - Blast large messages quickly to exceed capacity.  
+     - Record how many messages were successfully enqueued before blocking or `EAGAIN`.
+  3. Blocking vs. Non-blocking  
+     - Compare blocking-mode send vs. non-blocking send under identical load.  
+     - Print differences in success rates or how long it waits.
+  4. Intermittent Receiver  
+     - Start a receiver that periodically reads from the queue.  
+     - Senders measure how soon space frees up; print the final distribution of send times.
+  5. Full Queue + Random Sleep  
+     - Keep the queue full, then randomize the delay between enqueues and dequeues.  
+     - Compare how many messages get dropped or blocked in each run.
+- |
+  Kernel-Managed Metadata.
+  The kernel manages internal IDs and memory for IPC objects; creation and destruction times can vary, causing differences in how IDs or memory blocks are reused across runs.
+  Some of test propositions:
+  1. Repeated Creation/Destruction  
+     - Rapidly create and destroy a message queue or semaphore in a loop.  
+     - Print the object IDs assigned each time to see if they vary.
+  2. Metadata Query  
+     - Use `msgctl` or similar to query the queue state (number of messages, bytes in queue) repeatedly.  
+     - Compare if the reported states differ run-to-run at the same iteration.
+  3. Simultaneous Setup  
+     - Spawn multiple processes each creating an IPC object at once.  
+     - Log which process obtains lower/higher IDs, checking consistency across runs.
+  4. Staggered Teardown  
+     - Destroy objects in different orders each run.  
+     - Print the order of object IDs reclaimed.
+  5. Long-Lived vs. Short-Lived  
+     - Maintain one queue for the entire test while rapidly creating/tearing down additional queues.  
+     - Compare how that persistent queue’s ID or state changes (if at all).
+

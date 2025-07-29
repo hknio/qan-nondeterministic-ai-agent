@@ -1,0 +1,110 @@
+scope_name: 'Cross-Execution__Cross-Contract_Effects_Global_or_Static_Variables'
+prompt: 'Analyze potential non-deterministic behavior within the Cross-Execution & Cross-Contract Effects - Global or Static Variables'
+subjects:
+- |
+  Non-deterministic item: Static Memory Segments Not Reinitialized.
+  Global/static variables or data segments may remain if memory is not fully reset, causing subsequent executions to start with unexpected values.
+  Some of test propositions:
+  1. Global Counter Program  
+     - A global static counter increments each time the program runs.  
+     - Print its value at startup.  
+     - If it ever shows an incremented value at the beginning of a new run, it wasn’t reinitialized.
+  
+  2. Static String Mutation  
+     - Have a global static string that the program modifies, then prints.  
+     - Observe if the initial string is ever already changed when the program starts again.  
+     - Changes indicate leftover static data.
+  
+  3. BSS Section Check  
+     - Create a large uninitialized global array (in the BSS).  
+     - On start, scan for non-zero data and print if found.  
+     - Non-zero data means it wasn’t re-zeroed.
+  
+  4. Cross-Run Singleton  
+     - A singleton class that stores a session ID in a static field.  
+     - If the program prints the same session ID across multiple runs, the static was not reset.
+  
+  5. Multiple Globals  
+     - Define multiple global variables in different compilation units, mutate them in one run.  
+     - Next run inspects if any are pre-mutated.  
+     - If so, leftover data remains.
+- |
+  Non-deterministic item: Singleton Patterns in Application Code.
+  Singletons hold global state. If they are not reconstructed from scratch on each run, the leftover internal state can cause varying outcomes.
+  Some of test propositions:
+  1. Singleton Session Key  
+     - A singleton that generates a “session key” on first use.  
+     - Print the key at startup.  
+     - If the key remains identical on subsequent runs (without a fresh init), leftover state is proven.
+  
+  2. Logger or Config Manager  
+     - A singleton logger that records “initialized at time X” into a static variable.  
+     - Next run checks if the time is already set.  
+     - Pre-initialized time indicates leftover data.
+  
+  3. Object Reference Counting  
+     - A singleton with a static reference counter that increments upon creation.  
+     - Print the counter at program start.  
+     - If it’s not zero on a fresh run, the state carried over.
+  
+  4. File-Based Singleton  
+     - The singleton writes an ID to a known file path in memory or ephemeral storage.  
+     - If next run finds that ID without re-initializing, leftover state or the object instance persisted.
+  
+  5. Double Initialization Attempt  
+     - Program tries to create two instances of a supposedly single-instance object in the same run.  
+     - If the second attempt fails, but a subsequent run finds it “already created,” the state is bridging runs.
+- |
+  Non-deterministic item: JIT Caches or Language VM Caches.
+  Virtual machines or interpreters (Java, Python, .NET, etc.) may keep JIT-compiled code or data in memory. Without a fresh environment, the next execution may see leftover caches.
+  Some of test propositions:
+  1. Java Class Hotspot  
+     - Launch a small Java program repeatedly, measuring the time for a heavy loop.  
+     - If the second run is consistently faster (within the same container instance) even after supposed reset, a JIT cache might remain.
+  
+  2. Python Bytecode Cache  
+     - Create a Python script that triggers `.pyc` file creation.  
+     - Print a timestamp or signature if `.pyc` remains on subsequent runs.  
+     - If found, leftover caches exist.
+  
+  3. .NET Assembly Temp Files  
+     - A .NET program that compiles code dynamically (e.g., via `Roslyn`) and checks if the generated assembly remains on disk.  
+     - If leftover assemblies are found, the cache was not cleared.
+  
+  4. Memory Mapped JIT  
+     - A program that JIT-compiles (e.g., using LLVM) and prints the memory addresses used.  
+     - Next run checks if addresses remain mapped or overshadowed.  
+     - Overlap may suggest leftover JIT segments.
+  
+  5. Profiling Data  
+     - A language runtime can store profiling info to optimize subsequent runs.  
+     - Print the presence of any profiling or coverage files.  
+     - If the second run sees these files unaltered, the environment was not reset.
+- |
+  Non-deterministic item: Static Initialization Order Differences.
+  If multiple static objects or modules have interdependent initializations, the order might vary between builds or runs, causing unexpected differences in initial state.
+  Some of test propositions:
+  1. Multiple Constructors  
+     - Define two global objects with constructors that print or modify a shared global variable.  
+     - Compare the print order across runs.  
+     - If the order varies unpredictably, there’s a nondeterministic init sequence.
+  
+  2. Race in Dynamic Loading  
+     - Dynamically load multiple libraries, each with static init code.  
+     - Print the order in which init routines are invoked.  
+     - Variation in order suggests nondeterminism.
+  
+  3. Function-Static Race  
+     - Two functions each define a static local variable, and both are called at startup.  
+     - Print the moment each static is first initialized.  
+     - If the sequence changes between runs, init ordering is inconsistent.
+  
+  4. Compiler-Specific Attributes  
+     - Use attributes like `__attribute__((init_priority))` in C++, if available.  
+     - Compare the resulting init order across separate runs or servers.  
+     - Variation indicates nondeterminism.
+  
+  5. Library Plugin Discovery  
+     - A program discovers plugins in a directory, each with a static initializer.  
+     - If the file system enumeration or plugin load order changes run to run, it implies nondeterminism in static init ordering.
+

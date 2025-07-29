@@ -1,0 +1,74 @@
+scope_name: 'Language_Runtimes__Libraries_Runtime_Self-Profiling__Self-Tuning'
+prompt: 'Analyze potential non-deterministic behavior within the Language Runtimes & Libraries - Runtime Self-Profiling & Self-Tuning'
+subjects:
+- |
+  Profiling-Based Optimization.
+  Some runtimes or frameworks gather profiling data (e.g., method call frequency, CPU usage) to decide on further optimization or instrumentation. The timing of sample-based profiling or the moment certain counters hit thresholds may differ if the program’s execution speed or thread interleavings vary.
+  Some of test propositions:
+  1. Sampling Rate Check  
+     - If you can configure a sampling profiler, set it to a known rate but let the code run. Print logs of each profiler “tick.” Across multiple runs, observe if ticks align differently with code hotspots.
+  2. Varying Workload  
+     - Randomly interleave CPU-bound tasks and I/O tasks. Print which tasks get flagged by the profiler as “hot.” Shifts in the workload pattern can cause different tasks to be profiled and optimized.
+  3. Frequent Logging of Profiling Counters  
+     - If the runtime exposes counters (e.g., “method X has been called Y times”), print them at regular intervals. Compare how quickly each method accumulates call counts across runs.
+  4. Short Execution Windows  
+     - Restrict your program to a 2-3 second run. If sampling misses certain intervals, it might not detect a hot method. Print final optimization decisions or logs to see if they differ.
+  5. Forced Profile Points  
+     - Manually insert “profiling points” (e.g., method-level counters) that log to stdout. Over repeated runs, slight timing changes can yield different logs showing which methods got recognized as frequent.
+- |
+  Adaptive Resource Management.
+  Runtimes may adapt thread pools, memory usage, or other resources based on heuristics. Even though the container is pinned to 1 CPU and 1 GB memory, the internal logic might scale internal data structures or parallelism differently if usage spikes or dips unpredictably.
+  Some of test propositions:
+  1. Thread Pool Snapshot  
+     - Periodically query and print the current size of the language’s thread pool. Over multiple runs, see if the pool grows or shrinks differently at similar timestamps or iteration counts.
+  2. Rapidly Changing Load  
+     - Alternate between CPU-intensive tasks and idle periods. Print a timestamp each time a task starts or completes. Different runs might see different pool expansions or contractions.
+  3. Memory Pressure Variation  
+     - Allocate memory in bursts, then free it, and log how the runtime’s reported heap size or usage changes. If the runtime adapts memory differently, logs may diverge across runs.
+  4. Max Throughput vs. Min Latency  
+     - Some frameworks have modes or heuristics that optimize for throughput or latency. Force tasks that might trigger each mode, and print the mode or internal setting if accessible. Variation can appear across runs.
+  5. Periodic Configuration Logging  
+     - If the runtime provides introspection (e.g., printing GC or thread pool config), print that config at intervals. Notice if the concurrency or memory parameters differ across repeated runs.
+- |
+  On-the-Fly Hot Method Detection.
+  Runtimes may detect “hot” methods in real time based on call frequency or timing. Tiny differences in how quickly or often a method is called can lead to it being flagged as hot in one run but not in another.
+  Some of test propositions:
+  1. Rapid-Call vs. Slow-Call  
+     - Sometimes call a method in quick succession, sometimes spaced out with sleeps. Print a message whenever the method becomes recognized as “hot” (e.g., after JIT logs). Compare across runs.
+  2. Method Burst Approach  
+     - Repeatedly execute short bursts of a method, printing iteration counts. If detection is time-based (not just call-count-based), subtle scheduling differences can yield different detection points.
+  3. Multi-Method Race  
+     - Have two or three methods contending to be the “hottest.” Print which method receives optimization first. If the order is inconsistent across runs, that indicates nondeterminism.
+  4. Adaptive Logging  
+     - Insert logging that checks the method’s average runtime periodically. If the method gets optimized unpredictably, you will see a sudden performance jump at different times across runs.
+  5. Concurrency Interference  
+     - Simultaneously call the method from multiple tasks or threads (even on one CPU, they’ll time-slice). Print each task’s call counts. The detection of hot methods might vary if calls interleave differently.
+- |
+  Sampling Profilers.
+  Sampling profilers pause execution at intervals to see which code is running. Slight variations in timing and scheduling can cause different snapshots, leading to different optimization or analysis results.
+  Some of test propositions:
+  1. Adjust Sampling Interval  
+     - If you can set the profiler’s sampling interval, run the same code with intervals like 10ms vs. 5ms. Print the profiler’s summary. Different sampling intervals might highlight different hotspots.
+  2. Compare Profiler Summaries  
+     - Let the exact same code run multiple times with the same sampling interval, but compare the final reported “top methods.” If there’s nondeterminism, top methods might differ in rank or percentage.
+  3. Periodic Heartbeat During Profiling  
+     - Insert a “heartbeat” print at a known frequency. If the profiler sampling regularly overlaps these heartbeats in one run but not another, it can lead to distinct coverage of the code.
+  4. Multi-Phase Code  
+     - Write code in phases (phase A, B, C). The profiler might capture different phases more frequently in different runs. Print a small summary after each phase to see if coverage or performance is consistent.
+  5. Forced Pauses  
+     - Insert small random sleeps in the code. If a sample hits the program during the sleep, it might incorrectly measure that method’s usage less frequently. Compare multiple runs’ final reported profile.
+- |
+  Heuristic Tuning Over Time.
+  Certain VMs accumulate statistics throughout the run (e.g., how many times a method was inlined, or how frequently certain GC cycles ran). The final configuration or performance can vary if those stats differ slightly, triggering different heuristic decisions.
+  Some of test propositions:
+  1. Long-Running Loop with Intermediate Checks  
+     - Over a 5-second budget, run a loop that prints a summary every second (e.g., how many objects allocated, how many calls to a method). Compare these summaries across runs to see if the runtime’s adaptive steps vary.
+  2. Stat Accumulation Logging  
+     - If possible, log the runtime’s internal counters for inlining, compilation, or memory usage at intervals. Differences in these counters across runs suggest heuristic-based nondeterminism.
+  3. Variable Load Patterns  
+     - Introduce random or conditional logic so the code sometimes does more CPU-bound work, sometimes less. Print final performance stats. If heuristics adapt differently each run, results differ.
+  4. Check Behavior at End of Execution  
+     - Right before exiting (under 5s), print out the final “mode” or memory usage. If heuristics have changed the runtime behavior unpredictably, you’ll see distinct final states each run.
+  5. Partial Warmup  
+     - Force partial warmup (call certain methods a limited number of times) and then switch tasks. Print how often each method was invoked. The thresholds for adaptation might be reached in some runs but not others.
+

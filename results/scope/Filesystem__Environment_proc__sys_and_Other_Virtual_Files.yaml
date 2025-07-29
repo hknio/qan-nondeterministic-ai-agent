@@ -1,0 +1,32 @@
+scope_name: 'Filesystem__Environment_proc__sys_and_Other_Virtual_Files'
+prompt: 'Analyze potential non-deterministic behavior within the Filesystem & Environment - `/proc`, `/sys`, and Other Virtual Files'
+subjects:
+- |
+  Machine-Specific Data.
+  Files like `/proc/cpuinfo`, `/proc/meminfo`, or `/sys/devices/system/cpu/` reflect the host hardware or emulator configuration. Different hosts or varying KVM CPU models can expose different flags, CPU counts, or memory details.
+  Some of test propositions:
+  1. CPU Info Comparator  
+     - Read `/proc/cpuinfo`, parse flags (like `avx`, `sse2`), and print them. Compare across runs to see if they differ.  
+  2. Memory Info Check  
+     - Read `/proc/meminfo`, print total memory reported. A mismatch across validators suggests a hardware/emulation difference.  
+  3. Count Online CPUs  
+     - Check `/sys/devices/system/cpu/online` or `/proc/stat` to confirm how many CPUs are presented. Must consistently show 1 CPU if pinned.  
+  4. Print Kernel/OS Release  
+     - Even within a container, `/proc/version` may show subtle differences (build times, patch levels) if not fully intercepted. Compare across runs.  
+  5. Cgroup Path Check  
+     - Print `/proc/self/cgroup` to see if cgroup names/IDs differ across hosts, indicating environment-level differences.
+- |
+  Blocking or Emulation.
+  Some container runtimes or sandbox technologies (like gVisor) intercept or emulate system calls differently. Partial or synthesized `/proc` or `/sys` data might not be consistent across different host configurations, especially if certain files are entirely blocked or only partially implemented.
+  Some of test propositions:
+  1. Syscall Coverage Probe  
+     - Attempt to read from a set of known `/proc` files (e.g., `/proc/self/exe`, `/proc/self/cmdline`, `/proc/cpuinfo`). Print if any read fails or yields unexpected results.  
+  2. Repeated Reading  
+     - Read the same `/proc` entry multiple times. If some host intercepts or emulates data differently, repeated reads might differ across runs.  
+  3. Check for Missing `/sys` Entries  
+     - Attempt to list certain `/sys` directories (like `/sys/kernel/debug`), printing which exist. Some environments may block these paths.  
+  4. Rate-Limit or Partial Read Test  
+     - Quickly read a larger pseudo-file (like `/proc/kallsyms` if accessible) in small chunks. Detect if the read is truncated or blocked differently across runs.  
+  5. Compare Timestamps in `/proc`  
+     - Some `/proc` entries (like `/proc/self/stat`) might expose start times or ephemeral data. Print them repeatedly to see if any unexpected variation appears across hosts.
+

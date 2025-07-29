@@ -1,0 +1,58 @@
+scope_name: 'CPU__Microarchitecture_Caches_TLB__Bus'
+prompt: 'Analyze potential non-deterministic behavior within the CPU & Microarchitecture - Caches, TLB, & Bus'
+subjects:
+- |
+  Cache Warmup.
+  Caches begin in a “cold” state, but even slight differences in the exact order or timing of memory accesses can change which lines remain in cache. Self-eviction, set conflicts, and hardware prefetchers can cause different lines to be cached or evicted unpredictably, producing run-to-run variations in access latencies.
+  Some of test propositions:
+  1. Multi-Phase Memory Access  
+     - Phase 1: Sequentially read a large array. Phase 2: Randomly read the same array. Print total time for each phase. Differences in how Phase 1 warms the cache can affect Phase 2’s performance across runs.
+  
+  2. Repeated Start-Stop Loops  
+     - Run a data-intensive loop, pause briefly, then run it again. Print the execution time of each loop. Minor differences in cache retention may show up as timing variations.
+  
+  3. Cache Conflict Stress  
+     - Access addresses mapping to the same cache set repeatedly. Print average access latency. If eviction occurs differently, the results vary across runs.
+  
+  4. Progressive Data Size Test  
+     - For data sets of increasing size (small to bigger than L1/L2/L3 cache), measure and print access times. Repeat multiple runs. If cache warmup or prefetch differs, transition points may shift.
+  
+  5. Load + Compute vs. Compute-Only  
+     - First load a large data set into memory, then run a CPU-bound step. Print the compute step’s time only. If the data remains in cache more effectively in some runs than others, timing differs.
+- |
+  TLB Misses.
+  The Translation Lookaside Buffer (TLB) caches virtual-to-physical address translations. Page table walks incur extra overhead if a TLB miss occurs. Small changes in process or kernel initialization, address layout, or sequence of memory accesses can lead to inconsistent TLB fill patterns (and thus unpredictable differences in memory access times).
+  Some of test propositions:
+  1. Random Access Pattern  
+     - Randomly access a large array exceeding typical TLB coverage. Print average access time. Even slight changes in address usage or TLB state can alter miss rates across runs.
+  
+  2. Sequential vs. Strided Access  
+     - Compare timings of sequential access (likely more TLB-friendly) to large-stride access (which can force frequent TLB misses). Print both. Fluctuations across runs suggest nondeterministic TLB state.
+  
+  3. Frequent Context Switching Emulation  
+     - Within a single process, generate signals or short threads to induce partial TLB flush-like effects. Print memory access times in between. Variation indicates TLB unpredictability.
+  
+  4. Huge Pages vs. Regular Pages  
+     - If supported in the container, compare performance of memory accesses when using large pages vs. standard pages. Print the results. Differences in coverage or alignment can alter TLB miss patterns.
+  
+  5. Instruction vs. Data TLB Stress  
+     - Dynamically load and execute code from a buffer (simulate JIT) while also reading data. Print average instruction execution time. Variation in iTLB usage can cause run-to-run performance differences.
+- |
+  Memory Bus Contention.
+  Even with a single vCPU, host-level processes, hypervisor tasks, or DMA can intermittently contend for memory bandwidth. These transient stalls affect memory-intensive code and can introduce random latency spikes that differ between runs or machines.
+  Some of test propositions:
+  1. Sustained Memory Throughput Test  
+     - Continuously read/write a large buffer for the entire test duration. Print measured throughput. If bus contention spikes, the result changes across runs.
+  
+  2. Latency Spike Detector  
+     - Perform small random accesses in a tight loop, logging the highest latency observed. Print that peak latency. Sporadic bus contention will manifest as outlier spikes.
+  
+  3. Simulated “Burst” Traffic  
+     - Alternate brief periods of heavy memory writes with idle intervals. Print the min/max observed throughput. Unexpected contention may produce inconsistent min/max across runs.
+  
+  4. Concurrent VM Background Task  
+     - If allowed, spawn a secondary memory-intensive task within the container (low priority). The main program prints how its own average memory latency changes. Variation suggests bus contention.
+  
+  5. Periodic Sleep + Access  
+     - Sleep for short intervals, then measure memory access performance. Print average latencies per cycle. If the host schedules other memory activity during sleep, subsequent runs may exhibit different contention.
+

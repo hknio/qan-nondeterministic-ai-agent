@@ -1,0 +1,61 @@
+scope_name: 'System_Calls__Kernel_Interactions_Kernel_Memory__RCU'
+prompt: 'Analyze potential non-deterministic behavior within the System Calls & Kernel Interactions - Kernel Memory & RCU'
+subjects:
+- |
+  Deferred Freeing.
+  RCU (Read-Copy-Update) defers freeing memory until after a grace period. The exact timing of that period depends on quiescent states, which may vary slightly run-to-run, causing unexpected differences in kernel resource availability.
+  Some of test propositions:
+  1. Memory Allocation & Free Spikes  
+     - Rapidly allocate and free memory-laden structures.  
+     - Print timestamps for each allocation/free, observing if the system occasionally delays free.
+  2. RCU-Managed Structures  
+     - If possible, interact with kernel data known to use RCU (e.g., certain `/proc` calls).  
+     - Compare queries for stale or updated data across runs.
+  3. Repeated Grace Period Trigger  
+     - Force context switches or thread sleeps to encourage RCU grace periods to complete.  
+     - Check if memory usage dips at different times each run.
+  4. High-Frequency Creation/Destruction  
+     - Create and remove kernel objects that use RCU (like network interfaces if accessible, or IPC objects).  
+     - Print the object’s lifecycle and any delayed freeing messages.
+  5. Resource Exhaustion  
+     - Attempt near the 1024MB limit while creating ephemeral kernel structures so RCU might delay freeing.  
+     - Print whether the environment hits resource limits differently across runs.
+- |
+  RCU Schedulers & Preemption.
+  The kernel forces quiescent states at variable intervals, potentially delaying updates or freeing of shared data. Scheduling or preempting can happen at slightly different moments, introducing run-to-run variations.
+  Some of test propositions:
+  1. RCU Stress With Syscall Loops  
+     - Execute continuous syscalls that read from `/proc` (which might rely on RCU) while also toggling memory usage.  
+     - Compare if read content changes unpredictably mid-run.
+  2. Frequent Context Switch  
+     - Use multiple short-running tasks that yield often (e.g., `sched_yield()`).  
+     - Record how quickly certain RCU-protected data is updated after a known change.
+  3. Timer-Driven Grace  
+     - Use periodic timers to create potential RCU synchronization points.  
+     - Print whether an update to an RCU-tracked resource is seen by all tasks at different times.
+  4. Interrupt Storm Simulation  
+     - If signals or any interrupt mechanism is possible, repeatedly interrupt the process to see if it defers RCU callbacks.  
+     - Log differences in timing for updated data.
+  5. Repeated Read After Update  
+     - Continuously read an RCU-protected structure right after writing/updating it.  
+     - Print how many reads see the old data vs. new data.
+- |
+  Changing Internal References.
+  If user processes read kernel structures (via `/proc`, `ioctl`, etc.) that are in the middle of RCU updates, the data might appear partially updated or differ across runs, based on timing.
+  Some of test propositions:
+  1. Periodic `/proc` Scans  
+     - Repeatedly read entries like `/proc/self/stat` or `/proc/locks`.  
+     - Print any anomalies or transient changes in the data.
+  2. RCU Update Triggers  
+     - Force changes in a kernel table (e.g., open/close files) while reading `/proc/sys/fs/file-nr`.  
+     - Compare the reported file count across runs.
+  3. In-flight IOCTL Queries  
+     - If a driver supports RCU updates, rapidly call its IOCTL while also toggling driver state.  
+     - Log any partial or inconsistent responses.
+  4. Concurrent Threaded Access  
+     - Two threads read the same `/proc` entry while the system is under memory stress.  
+     - Print differences in what each thread sees for the same read operation.
+  5. Check for Partial Data  
+     - Attempt to read large, multi-page `/proc` data in small chunks.  
+     - Compare chunks to see if they mismatch across runs (e.g., updated in the middle of the read).
+

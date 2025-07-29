@@ -1,0 +1,112 @@
+scope_name: 'Cross-Execution__Cross-Contract_Effects_Inter-Contract_Interactions'
+prompt: 'Analyze potential non-deterministic behavior within the Cross-Execution & Cross-Contract Effects - Inter-Contract Interactions'
+subjects:
+- |
+  Non-deterministic item: Updates to Shared Global State.
+  Multiple contracts modifying the same on-chain data can lead to race conditions if the starting state or transaction ordering is not consistently pinned.
+  Some of test propositions:
+  1. Atomic Increment Race  
+     - Two contracts each increment the same global counter.  
+     - A test harness triggers them in near-simultaneous transactions, printing final counter values.  
+     - Inconsistent outcomes indicate nondeterministic updates.
+  
+  2. Block Number vs. Data Version  
+     - One contract logs the block number when it updates state; another reads state based on a prior block reference.  
+     - If the read sees partial updates from the “wrong” block, nondeterministic state ordering is confirmed.
+  
+  3. Fuzzing Parallel Calls  
+     - Rapidly fire calls to the same contract function from multiple addresses.  
+     - Print the final on-chain state.  
+     - Variation across runs implies nondeterminism in how writes are applied.
+  
+  4. Conflict Test  
+     - Contract A sets a variable to X, Contract B sets it to Y within the same block.  
+     - A test program checks final value or transaction success.  
+     - If the final state is inconsistent across repeated identical runs, ordering is nondeterministic.
+  
+  5. Checkpoint Mismatch  
+     - Contract depends on a prior “checkpoint” state.  
+     - If the chain or environment doesn’t guarantee the checkpoint is the same across runs, the final printed state may vary.  
+     - Variation confirms nondeterministic global state references.
+- |
+  Non-deterministic item: Read-After-Write Visibility Delays.
+  When a contract writes to the blockchain and another contract reads that data in quick succession, the read might see old or new data depending on transaction ordering, block mining, or partial synchronization.
+  Some of test propositions:
+  1. Immediate Readback  
+     - Contract A updates a variable; Contract B reads it in the same block.  
+     - Print the read result.  
+     - If sometimes the old value is observed, sometimes the new, that’s nondeterministic.
+  
+  2. Staggered Transaction Submissions  
+     - Submit a write transaction, wait a very short random time, then submit a read transaction.  
+     - Compare the read results across multiple runs.  
+     - Inconsistent reading indicates a visibility delay.
+  
+  3. Orchestration Tool  
+     - Use a script that orchestrates multiple calls in parallel, printing each contract’s final state to `stdout`.  
+     - If the read sometimes lags behind, the final printed outcome changes.
+  
+  4. Block Miner Simulation  
+     - On a local test net, manipulate block timing.  
+     - If the read transaction is included in the same block unpredictably, the read result might vary.  
+     - This demonstrates the effect of block-boundary nondeterminism.
+  
+  5. Logging Timestamps  
+     - Contract writes a timestamp upon state update, Contract B logs the timestamp it sees.  
+     - If B’s timestamp sometimes predates the write’s timestamp, the chain ordering is non-deterministic from the contract’s perspective.
+- |
+  Non-deterministic item: Dependent Calls Across Contracts.
+  Chained or nested calls (Contract A → B → C) can produce divergent outcomes if the execution order or intermediate states are not deterministic, especially when multiple calls are in flight.
+  Some of test propositions:
+  1. Call Chain Depth  
+     - Deploy a test setup where A calls B, B calls C, each storing or returning values.  
+     - Print the final aggregated result.  
+     - Variation across identical runs suggests nondeterministic call ordering.
+  
+  2. Failure Cascade  
+     - Contract B reverts if a certain condition from Contract A’s state is not set in time.  
+     - Rapid calls might cause B to see or not see A’s update.  
+     - Compare pass/fail rates across runs.
+  
+  3. Concurrent Execution Attempt  
+     - If the environment tries to parallelize contract calls, race conditions in intermediate states might appear.  
+     - Print final states of all calls.  
+     - Variation indicates concurrency-based nondeterminism.
+  
+  4. Rollback vs. Commit  
+     - Contract B partially updates the state, but C might revert.  
+     - The final result depends on whether the revert is triggered before the commit.  
+     - Random differences in timing or order lead to nondeterministic outcomes.
+  
+  5. Cycle or Reentrancy  
+     - Contract A calls B, which re-calls A.  
+     - If reentrancy is not carefully managed, the final state might vary across runs.  
+     - Print the final state to detect differences.
+- |
+  Non-deterministic item: External Resources & Oracles.
+  Contracts referencing off-chain data (or oracles) may receive different responses or timing, causing results to vary unpredictably.
+  Some of test propositions:
+  1. Mock Oracle Delay  
+     - A contract reads from a mock oracle that randomly delays responses.  
+     - Print the data the contract finally sees.  
+     - Variation in timing can reveal nondeterminism.
+  
+  2. Stale vs. Fresh Data  
+     - The oracle updates every N seconds, but the contract calls it at random intervals.  
+     - If the contract result is sometimes old data, sometimes new, outputs differ across runs.
+  
+  3. Network-Triggered Oracle  
+     - The contract requests data from an external feed.  
+     - If network conditions vary (latency, partial updates), the returned data might differ.  
+     - Print the final on-chain oracle response for each run.
+  
+  4. Cacheable Oracle Responses  
+     - If the oracle or the chain node caches the response, repeated contract calls might see outdated data.  
+     - Compare multiple runs closely spaced vs. spaced far apart.  
+     - Different outcomes confirm nondeterministic caching.
+  
+  5. Pseudorandom Oracles  
+     - Some oracles generate random data.  
+     - If the environment does not fix the seed or block references properly, repeated runs yield different outputs.  
+     - Log each run’s random result.
+

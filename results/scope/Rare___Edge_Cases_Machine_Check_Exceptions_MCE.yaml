@@ -1,0 +1,18 @@
+scope_name: 'Rare___Edge_Cases_Machine_Check_Exceptions_MCE'
+prompt: 'Analyze potential non-deterministic behavior within the Rare / Edge Cases - Machine Check Exceptions (MCE)'
+subjects:
+- |
+  Hardware Fault Detection.
+  Machine Check Exceptions (MCE) happen when the CPU detects internal errors (e.g., cache parity). Handling may interrupt or halt processes unpredictably.
+  Some of test propositions:
+  - MCE Logging Poll  
+    Continuously read and print MCE logs (if accessible) in a loop. Any new entry indicates a hardware-detected fault.
+  - Hardware Stress  
+    Perform CPU-heavy tasks (e.g., prime factorization) and watch for MCE logs or unexpected halts. Print progress counters or error messages if a fault occurs.
+  - Cache Overload  
+    Rapidly flush and refill caches with large data sets, checking for corruption. Print any anomalies in data verification.
+  - Binary Search for Errors  
+    Test small segments of memory in a tight loop, printing offsets of any detected corruption or MCE-like signals.
+  - Recovery vs. Crash Detector  
+    Push system to extremes (e.g., memory overcommit, CPU heat) and detect if an MCE is handled gracefully or causes a crash. Print final status or error codes.
+
